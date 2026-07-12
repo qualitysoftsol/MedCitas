@@ -9,38 +9,202 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppPerfilRouteImport } from './routes/app.perfil'
+import { Route as AppAdminIndexRouteImport } from './routes/app.admin.index'
+import { Route as AppIpsResultadosRouteImport } from './routes/app.ips.resultados'
+import { Route as AppIpsCitasRouteImport } from './routes/app.ips.citas'
+import { Route as AppIpsCalendarioRouteImport } from './routes/app.ips.calendario'
+import { Route as AppEmpresaSolicitarRouteImport } from './routes/app.empresa.solicitar'
+import { Route as AppEmpresaResultadosRouteImport } from './routes/app.empresa.resultados'
+import { Route as AppEmpresaCitasRouteImport } from './routes/app.empresa.citas'
+import { Route as AppAdminRegistrarRouteImport } from './routes/app.admin.registrar'
+import { Route as AppAdminMenusRouteImport } from './routes/app.admin.menus'
 
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppRoute = AppRouteImport.update({
+  id: '/app',
+  path: '/app',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppPerfilRoute = AppPerfilRouteImport.update({
+  id: '/perfil',
+  path: '/perfil',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAdminIndexRoute = AppAdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppIpsResultadosRoute = AppIpsResultadosRouteImport.update({
+  id: '/ips/resultados',
+  path: '/ips/resultados',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppIpsCitasRoute = AppIpsCitasRouteImport.update({
+  id: '/ips/citas',
+  path: '/ips/citas',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppIpsCalendarioRoute = AppIpsCalendarioRouteImport.update({
+  id: '/ips/calendario',
+  path: '/ips/calendario',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppEmpresaSolicitarRoute = AppEmpresaSolicitarRouteImport.update({
+  id: '/empresa/solicitar',
+  path: '/empresa/solicitar',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppEmpresaResultadosRoute = AppEmpresaResultadosRouteImport.update({
+  id: '/empresa/resultados',
+  path: '/empresa/resultados',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppEmpresaCitasRoute = AppEmpresaCitasRouteImport.update({
+  id: '/empresa/citas',
+  path: '/empresa/citas',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAdminRegistrarRoute = AppAdminRegistrarRouteImport.update({
+  id: '/admin/registrar',
+  path: '/admin/registrar',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAdminMenusRoute = AppAdminMenusRouteImport.update({
+  id: '/admin/menus',
+  path: '/admin/menus',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/app': typeof AppRouteWithChildren
+  '/auth': typeof AuthRoute
+  '/app/perfil': typeof AppPerfilRoute
+  '/app/admin/menus': typeof AppAdminMenusRoute
+  '/app/admin/registrar': typeof AppAdminRegistrarRoute
+  '/app/empresa/citas': typeof AppEmpresaCitasRoute
+  '/app/empresa/resultados': typeof AppEmpresaResultadosRoute
+  '/app/empresa/solicitar': typeof AppEmpresaSolicitarRoute
+  '/app/ips/calendario': typeof AppIpsCalendarioRoute
+  '/app/ips/citas': typeof AppIpsCitasRoute
+  '/app/ips/resultados': typeof AppIpsResultadosRoute
+  '/app/admin/': typeof AppAdminIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/app': typeof AppRouteWithChildren
+  '/auth': typeof AuthRoute
+  '/app/perfil': typeof AppPerfilRoute
+  '/app/admin/menus': typeof AppAdminMenusRoute
+  '/app/admin/registrar': typeof AppAdminRegistrarRoute
+  '/app/empresa/citas': typeof AppEmpresaCitasRoute
+  '/app/empresa/resultados': typeof AppEmpresaResultadosRoute
+  '/app/empresa/solicitar': typeof AppEmpresaSolicitarRoute
+  '/app/ips/calendario': typeof AppIpsCalendarioRoute
+  '/app/ips/citas': typeof AppIpsCitasRoute
+  '/app/ips/resultados': typeof AppIpsResultadosRoute
+  '/app/admin': typeof AppAdminIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/app': typeof AppRouteWithChildren
+  '/auth': typeof AuthRoute
+  '/app/perfil': typeof AppPerfilRoute
+  '/app/admin/menus': typeof AppAdminMenusRoute
+  '/app/admin/registrar': typeof AppAdminRegistrarRoute
+  '/app/empresa/citas': typeof AppEmpresaCitasRoute
+  '/app/empresa/resultados': typeof AppEmpresaResultadosRoute
+  '/app/empresa/solicitar': typeof AppEmpresaSolicitarRoute
+  '/app/ips/calendario': typeof AppIpsCalendarioRoute
+  '/app/ips/citas': typeof AppIpsCitasRoute
+  '/app/ips/resultados': typeof AppIpsResultadosRoute
+  '/app/admin/': typeof AppAdminIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/app'
+    | '/auth'
+    | '/app/perfil'
+    | '/app/admin/menus'
+    | '/app/admin/registrar'
+    | '/app/empresa/citas'
+    | '/app/empresa/resultados'
+    | '/app/empresa/solicitar'
+    | '/app/ips/calendario'
+    | '/app/ips/citas'
+    | '/app/ips/resultados'
+    | '/app/admin/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/app'
+    | '/auth'
+    | '/app/perfil'
+    | '/app/admin/menus'
+    | '/app/admin/registrar'
+    | '/app/empresa/citas'
+    | '/app/empresa/resultados'
+    | '/app/empresa/solicitar'
+    | '/app/ips/calendario'
+    | '/app/ips/citas'
+    | '/app/ips/resultados'
+    | '/app/admin'
+  id:
+    | '__root__'
+    | '/'
+    | '/app'
+    | '/auth'
+    | '/app/perfil'
+    | '/app/admin/menus'
+    | '/app/admin/registrar'
+    | '/app/empresa/citas'
+    | '/app/empresa/resultados'
+    | '/app/empresa/solicitar'
+    | '/app/ips/calendario'
+    | '/app/ips/citas'
+    | '/app/ips/resultados'
+    | '/app/admin/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AppRoute: typeof AppRouteWithChildren
+  AuthRoute: typeof AuthRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/app': {
+      id: '/app'
+      path: '/app'
+      fullPath: '/app'
+      preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,11 +212,111 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/app/perfil': {
+      id: '/app/perfil'
+      path: '/perfil'
+      fullPath: '/app/perfil'
+      preLoaderRoute: typeof AppPerfilRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/admin/': {
+      id: '/app/admin/'
+      path: '/admin'
+      fullPath: '/app/admin/'
+      preLoaderRoute: typeof AppAdminIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/ips/resultados': {
+      id: '/app/ips/resultados'
+      path: '/ips/resultados'
+      fullPath: '/app/ips/resultados'
+      preLoaderRoute: typeof AppIpsResultadosRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/ips/citas': {
+      id: '/app/ips/citas'
+      path: '/ips/citas'
+      fullPath: '/app/ips/citas'
+      preLoaderRoute: typeof AppIpsCitasRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/ips/calendario': {
+      id: '/app/ips/calendario'
+      path: '/ips/calendario'
+      fullPath: '/app/ips/calendario'
+      preLoaderRoute: typeof AppIpsCalendarioRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/empresa/solicitar': {
+      id: '/app/empresa/solicitar'
+      path: '/empresa/solicitar'
+      fullPath: '/app/empresa/solicitar'
+      preLoaderRoute: typeof AppEmpresaSolicitarRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/empresa/resultados': {
+      id: '/app/empresa/resultados'
+      path: '/empresa/resultados'
+      fullPath: '/app/empresa/resultados'
+      preLoaderRoute: typeof AppEmpresaResultadosRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/empresa/citas': {
+      id: '/app/empresa/citas'
+      path: '/empresa/citas'
+      fullPath: '/app/empresa/citas'
+      preLoaderRoute: typeof AppEmpresaCitasRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/admin/registrar': {
+      id: '/app/admin/registrar'
+      path: '/admin/registrar'
+      fullPath: '/app/admin/registrar'
+      preLoaderRoute: typeof AppAdminRegistrarRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/admin/menus': {
+      id: '/app/admin/menus'
+      path: '/admin/menus'
+      fullPath: '/app/admin/menus'
+      preLoaderRoute: typeof AppAdminMenusRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
+interface AppRouteChildren {
+  AppPerfilRoute: typeof AppPerfilRoute
+  AppAdminMenusRoute: typeof AppAdminMenusRoute
+  AppAdminRegistrarRoute: typeof AppAdminRegistrarRoute
+  AppEmpresaCitasRoute: typeof AppEmpresaCitasRoute
+  AppEmpresaResultadosRoute: typeof AppEmpresaResultadosRoute
+  AppEmpresaSolicitarRoute: typeof AppEmpresaSolicitarRoute
+  AppIpsCalendarioRoute: typeof AppIpsCalendarioRoute
+  AppIpsCitasRoute: typeof AppIpsCitasRoute
+  AppIpsResultadosRoute: typeof AppIpsResultadosRoute
+  AppAdminIndexRoute: typeof AppAdminIndexRoute
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppPerfilRoute: AppPerfilRoute,
+  AppAdminMenusRoute: AppAdminMenusRoute,
+  AppAdminRegistrarRoute: AppAdminRegistrarRoute,
+  AppEmpresaCitasRoute: AppEmpresaCitasRoute,
+  AppEmpresaResultadosRoute: AppEmpresaResultadosRoute,
+  AppEmpresaSolicitarRoute: AppEmpresaSolicitarRoute,
+  AppIpsCalendarioRoute: AppIpsCalendarioRoute,
+  AppIpsCitasRoute: AppIpsCitasRoute,
+  AppIpsResultadosRoute: AppIpsResultadosRoute,
+  AppAdminIndexRoute: AppAdminIndexRoute,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AppRoute: AppRouteWithChildren,
+  AuthRoute: AuthRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
