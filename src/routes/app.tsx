@@ -9,6 +9,7 @@ import {
   UserCircle, LogOut, LayoutDashboard, Stethoscope, FilePlus2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { NotificationBell } from "@/components/NotificationBell";
 
 export const Route = createFileRoute("/app")({
   component: AppLayout,
