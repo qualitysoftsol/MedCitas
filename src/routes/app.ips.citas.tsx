@@ -2,14 +2,16 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useStore } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/app/ips/citas")({
   component: IpsCitas,
 });
 
 function IpsCitas() {
-  const { currentUser, appointments, users } = useStore();
+  const { currentUser, appointments, users, cancelAppointment } = useStore();
   const mine = appointments.filter((a) => a.ipsId === currentUser!.id);
   const nombreEmpresa = (id: string) => users.find((u) => u.id === id)?.profile.nombre ?? "—";
 
@@ -32,6 +34,7 @@ function IpsCitas() {
                   <TableHead>Examen</TableHead>
                   <TableHead>Depto médico</TableHead>
                   <TableHead>Estado</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -48,6 +51,21 @@ function IpsCitas() {
                       <Badge variant={a.estado === "atendida" ? "default" : "secondary"} className="capitalize">
                         {a.estado}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {a.estado === "agendada" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            const motivo = window.prompt("Motivo de la cancelación (opcional)") ?? undefined;
+                            cancelAppointment(a.id, motivo || undefined);
+                            toast.success("Cita cancelada. Se notificó a la empresa.");
+                          }}
+                        >
+                          Cancelar
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
