@@ -11,7 +11,7 @@ export const Route = createFileRoute("/app/empresa/citas")({
 });
 
 function EmpresaCitas() {
-  const { currentUser, appointments, users } = useStore();
+  const { currentUser, appointments, users, cancelAppointment } = useStore();
   const mine = appointments.filter((a) => a.empresaId === currentUser!.id);
   const nombreIps = (id: string) => users.find((u) => u.id === id)?.profile.nombre ?? "—";
 
