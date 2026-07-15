@@ -85,7 +85,7 @@ function AppSidebar({ items, role }: { items: NavItem[]; role: Role }) {
   const collapsed = state === "collapsed";
   const currentPath = useRouterState({ select: (r) => r.location.pathname });
 
-  const roleIcon = role === "ips" ? Stethoscope : role === "empresa" ? Building2 : ShieldCheck;
+  const roleIcon = role === "ips" ? Stethoscope : role === "empresa" ? Building2 : role === "particular" ? User : ShieldCheck;
   const RoleIcon = roleIcon;
 
   return (
