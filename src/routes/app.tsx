@@ -55,8 +55,9 @@ function AppLayout() {
               </div>
               <span className="font-semibold">MedCitas</span>
             </div>
-            <div className="ml-auto flex items-center gap-2">
-              <Link to="/app/perfil" className="hidden sm:flex items-center gap-2 text-sm hover:text-primary">
+            <div className="ml-auto flex items-center gap-1">
+              <NotificationBell />
+              <Link to="/app/perfil" className="hidden sm:flex items-center gap-2 text-sm hover:text-primary px-2">
                 <UserCircle className="w-4 h-4" />
                 {currentUser.profile.nombre}
               </Link>
