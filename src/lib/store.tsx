@@ -83,6 +83,7 @@ interface StoreState {
   slots: Slot[];
   appointments: Appointment[];
   resultados: Resultado[];
+  notifications: Notification[];
 }
 
 interface StoreCtx extends StoreState {
