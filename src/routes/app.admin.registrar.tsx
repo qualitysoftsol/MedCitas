@@ -20,6 +20,7 @@ function AdminRegistrar() {
   const [nombre, setNombre] = useState("");
   const [telefono, setTelefono] = useState("");
   const [nit, setNit] = useState("");
+  const [cedula, setCedula] = useState("");
   const [depto, setDepto] = useState("");
   const [ciudad, setCiudad] = useState("");
   const [deptosMed, setDeptosMed] = useState("Medicina General");

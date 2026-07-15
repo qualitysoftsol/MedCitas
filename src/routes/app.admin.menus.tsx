@@ -20,12 +20,20 @@ const EMPRESA_MENU = [
   { icon: UserCircle, title: "Mi perfil", desc: "Editar datos y contraseña" },
 ];
 
+const PARTICULAR_MENU = [
+  { icon: MapPin, title: "Solicitar cita", desc: "Agendar examen médico para sí mismo en la IPS más cercana" },
+  { icon: ClipboardList, title: "Mis citas", desc: "Ver el estado de sus propias citas" },
+  { icon: FilePlus2, title: "Mis resultados", desc: "Consultar sus resultados médicos" },
+  { icon: UserCircle, title: "Mi perfil", desc: "Editar datos y contraseña" },
+];
+
 function AdminMenus() {
   return (
     <div className="grid gap-4 md:grid-cols-2">
       {[
         { titulo: "Menú de IPS", items: IPS_MENU },
         { titulo: "Menú de Empresa", items: EMPRESA_MENU },
+        { titulo: "Menú de Particular", items: PARTICULAR_MENU },
       ].map((g) => (
         <Card key={g.titulo}>
           <CardHeader><CardTitle>{g.titulo}</CardTitle></CardHeader>
