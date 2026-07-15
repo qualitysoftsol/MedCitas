@@ -6,7 +6,7 @@ import {
 } from "@/components/ui/sidebar";
 import {
   CalendarDays, ClipboardList, FileUp, MapPin, Users, Building2, ShieldCheck,
-  UserCircle, LogOut, LayoutDashboard, Stethoscope, FilePlus2,
+  UserCircle, LogOut, LayoutDashboard, Stethoscope, FilePlus2, User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/NotificationBell";
@@ -27,6 +27,11 @@ const NAV: Record<Role, NavItem[]> = {
     { to: "/app/empresa/solicitar", title: "Solicitar cita", icon: MapPin },
     { to: "/app/empresa/citas", title: "Mis citas", icon: ClipboardList },
     { to: "/app/empresa/resultados", title: "Resultados", icon: FilePlus2 },
+  ],
+  particular: [
+    { to: "/app/particular/solicitar", title: "Solicitar cita", icon: MapPin },
+    { to: "/app/particular/citas", title: "Mis citas", icon: ClipboardList },
+    { to: "/app/particular/resultados", title: "Mis resultados", icon: FilePlus2 },
   ],
   admin: [
     { to: "/app/admin", title: "Panel", icon: LayoutDashboard },
@@ -80,7 +85,7 @@ function AppSidebar({ items, role }: { items: NavItem[]; role: Role }) {
   const collapsed = state === "collapsed";
   const currentPath = useRouterState({ select: (r) => r.location.pathname });
 
-  const roleIcon = role === "ips" ? Stethoscope : role === "empresa" ? Building2 : ShieldCheck;
+  const roleIcon = role === "ips" ? Stethoscope : role === "empresa" ? Building2 : role === "particular" ? User : ShieldCheck;
   const RoleIcon = roleIcon;
 
   return (

@@ -20,6 +20,7 @@ function AdminRegistrar() {
   const [nombre, setNombre] = useState("");
   const [telefono, setTelefono] = useState("");
   const [nit, setNit] = useState("");
+  const [cedula, setCedula] = useState("");
   const [depto, setDepto] = useState("");
   const [ciudad, setCiudad] = useState("");
   const [deptosMed, setDeptosMed] = useState("Medicina General");
@@ -35,19 +36,23 @@ function AdminRegistrar() {
       role,
       profile: { nombre: nombre.trim(), telefono },
       ...(role === "empresa" ? { nit } : {}),
+      ...(role === "particular" ? { cedula } : {}),
       ...(role === "ips" ? {
         departamento: depto, ciudad, lat: c?.lat, lng: c?.lng,
         departamentos: deptosMed.split(",").map((s) => s.trim()).filter(Boolean),
       } : {}),
     });
     if (!res.ok) return toast.error(res.error ?? "Error");
-    toast.success(`${role === "ips" ? "IPS" : "Empresa"} creada`);
-    setUsuario(""); setPassword(""); setNombre(""); setTelefono(""); setNit(""); setDepto(""); setCiudad("");
+    const label = role === "ips" ? "IPS" : role === "empresa" ? "Empresa" : "Particular";
+    toast.success(`${label} creada`);
+    setUsuario(""); setPassword(""); setNombre(""); setTelefono(""); setNit(""); setCedula(""); setDepto(""); setCiudad("");
   };
+
+  const titulo = role === "ips" ? "IPS" : role === "empresa" ? "Empresa" : "Particular";
 
   return (
     <Card className="max-w-2xl">
-      <CardHeader><CardTitle>Registrar {role === "ips" ? "IPS" : "Empresa"}</CardTitle></CardHeader>
+      <CardHeader><CardTitle>Registrar {titulo}</CardTitle></CardHeader>
       <CardContent className="space-y-3">
         <div>
           <Label>Tipo</Label>
@@ -56,6 +61,7 @@ function AdminRegistrar() {
             <SelectContent>
               <SelectItem value="ips">IPS</SelectItem>
               <SelectItem value="empresa">Empresa</SelectItem>
+              <SelectItem value="particular">Particular</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -63,10 +69,11 @@ function AdminRegistrar() {
           <div><Label>Usuario</Label><Input value={usuario} onChange={(e) => setUsuario(e.target.value)} /></div>
           <div><Label>Contraseña</Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} /></div>
         </div>
-        <div><Label>{role === "ips" ? "Nombre IPS" : "Razón social"}</Label><Input value={nombre} onChange={(e) => setNombre(e.target.value)} /></div>
+        <div><Label>{role === "ips" ? "Nombre IPS" : role === "particular" ? "Nombre completo" : "Razón social"}</Label><Input value={nombre} onChange={(e) => setNombre(e.target.value)} /></div>
         <div className="grid grid-cols-2 gap-3">
           <div><Label>Teléfono</Label><Input value={telefono} onChange={(e) => setTelefono(e.target.value)} /></div>
           {role === "empresa" && <div><Label>NIT</Label><Input value={nit} onChange={(e) => setNit(e.target.value)} /></div>}
+          {role === "particular" && <div><Label>Cédula</Label><Input value={cedula} onChange={(e) => setCedula(e.target.value)} /></div>}
         </div>
         {role === "ips" && (
           <>

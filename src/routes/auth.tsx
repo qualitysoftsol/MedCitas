@@ -36,6 +36,7 @@ function AuthPage() {
   const [nombre, setNombre] = useState("");
   const [telefono, setTelefono] = useState("");
   const [nit, setNit] = useState("");
+  const [cedula, setCedula] = useState("");
   const [depto, setDepto] = useState("");
   const [ciudad, setCiudad] = useState("");
   const [deptosMed, setDeptosMed] = useState("Medicina General, Optometría");
@@ -65,6 +66,7 @@ function AuthPage() {
       role,
       profile: { nombre: nombre.trim(), telefono },
       ...(role === "empresa" ? { nit } : {}),
+      ...(role === "particular" ? { cedula } : {}),
       ...(role === "ips"
         ? {
             departamento: depto,
@@ -115,7 +117,7 @@ function AuthPage() {
                 </div>
                 <Button type="submit" className="w-full">Entrar</Button>
                 <p className="text-xs text-muted-foreground text-center">
-                  Prueba: <b>ips_bogota / ips123</b> o <b>empresa_demo / emp123</b>
+                  Prueba: <b>ips_bogota / ips123</b>, <b>empresa_demo / emp123</b> o <b>particular_demo / part123</b>
                 </p>
               </form>
             </TabsContent>
@@ -128,6 +130,7 @@ function AuthPage() {
                     <SelectContent>
                       <SelectItem value="empresa">Empresa</SelectItem>
                       <SelectItem value="ips">IPS</SelectItem>
+                      <SelectItem value="particular">Particular</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -142,7 +145,7 @@ function AuthPage() {
                   </div>
                 </div>
                 <div>
-                  <Label>{role === "ips" ? "Nombre de la IPS" : "Razón social"}</Label>
+                  <Label>{role === "ips" ? "Nombre de la IPS" : role === "particular" ? "Nombre completo" : "Razón social"}</Label>
                   <Input value={nombre} onChange={(e) => setNombre(e.target.value)} />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -154,6 +157,12 @@ function AuthPage() {
                     <div>
                       <Label>NIT</Label>
                       <Input value={nit} onChange={(e) => setNit(e.target.value)} />
+                    </div>
+                  )}
+                  {role === "particular" && (
+                    <div>
+                      <Label>Cédula</Label>
+                      <Input value={cedula} onChange={(e) => setCedula(e.target.value)} />
                     </div>
                   )}
                 </div>
