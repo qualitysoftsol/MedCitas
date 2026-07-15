@@ -78,6 +78,23 @@ function AdminDashboard() {
             )}
           </CardContent>
         </Card>
+        <Card className="md:col-span-2">
+          <CardHeader><CardTitle>Particulares</CardTitle></CardHeader>
+          <CardContent>
+            {parts.length === 0 ? <p className="text-sm text-muted-foreground">Sin particulares.</p> : (
+              <ul className="divide-y">
+                {parts.map((u) => (
+                  <li key={u.id} className="py-2">
+                    <div className="font-medium">{u.profile.nombre}</div>
+                    <div className="text-xs text-muted-foreground">
+                      @{u.usuario} {u.cedula ? `· CC ${u.cedula}` : ""}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
