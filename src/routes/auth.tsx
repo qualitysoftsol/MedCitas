@@ -117,7 +117,7 @@ function AuthPage() {
                 </div>
                 <Button type="submit" className="w-full">Entrar</Button>
                 <p className="text-xs text-muted-foreground text-center">
-                  Prueba: <b>ips_bogota / ips123</b> o <b>empresa_demo / emp123</b>
+                  Prueba: <b>ips_bogota / ips123</b>, <b>empresa_demo / emp123</b> o <b>particular_demo / part123</b>
                 </p>
               </form>
             </TabsContent>
