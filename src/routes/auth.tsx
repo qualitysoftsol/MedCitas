@@ -130,6 +130,7 @@ function AuthPage() {
                     <SelectContent>
                       <SelectItem value="empresa">Empresa</SelectItem>
                       <SelectItem value="ips">IPS</SelectItem>
+                      <SelectItem value="particular">Particular</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -144,7 +145,7 @@ function AuthPage() {
                   </div>
                 </div>
                 <div>
-                  <Label>{role === "ips" ? "Nombre de la IPS" : "Razón social"}</Label>
+                  <Label>{role === "ips" ? "Nombre de la IPS" : role === "particular" ? "Nombre completo" : "Razón social"}</Label>
                   <Input value={nombre} onChange={(e) => setNombre(e.target.value)} />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -156,6 +157,12 @@ function AuthPage() {
                     <div>
                       <Label>NIT</Label>
                       <Input value={nit} onChange={(e) => setNit(e.target.value)} />
+                    </div>
+                  )}
+                  {role === "particular" && (
+                    <div>
+                      <Label>Cédula</Label>
+                      <Input value={cedula} onChange={(e) => setCedula(e.target.value)} />
                     </div>
                   )}
                 </div>
