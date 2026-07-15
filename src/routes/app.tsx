@@ -28,6 +28,11 @@ const NAV: Record<Role, NavItem[]> = {
     { to: "/app/empresa/citas", title: "Mis citas", icon: ClipboardList },
     { to: "/app/empresa/resultados", title: "Resultados", icon: FilePlus2 },
   ],
+  particular: [
+    { to: "/app/particular/solicitar", title: "Solicitar cita", icon: MapPin },
+    { to: "/app/particular/citas", title: "Mis citas", icon: ClipboardList },
+    { to: "/app/particular/resultados", title: "Mis resultados", icon: FilePlus2 },
+  ],
   admin: [
     { to: "/app/admin", title: "Panel", icon: LayoutDashboard },
     { to: "/app/admin/registrar", title: "Registrar IPS/Empresa", icon: Users },
