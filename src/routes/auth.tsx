@@ -36,6 +36,7 @@ function AuthPage() {
   const [nombre, setNombre] = useState("");
   const [telefono, setTelefono] = useState("");
   const [nit, setNit] = useState("");
+  const [cedula, setCedula] = useState("");
   const [depto, setDepto] = useState("");
   const [ciudad, setCiudad] = useState("");
   const [deptosMed, setDeptosMed] = useState("Medicina General, Optometría");
@@ -65,6 +66,7 @@ function AuthPage() {
       role,
       profile: { nombre: nombre.trim(), telefono },
       ...(role === "empresa" ? { nit } : {}),
+      ...(role === "particular" ? { cedula } : {}),
       ...(role === "ips"
         ? {
             departamento: depto,
