@@ -55,6 +55,7 @@ function EmpresaCitas() {
                     <TableHead>IPS</TableHead>
                     <TableHead>Ciudad</TableHead>
                     <TableHead>Estado</TableHead>
+                    <TableHead className="text-right">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -70,6 +71,21 @@ function EmpresaCitas() {
                         <Badge variant={a.estado === "atendida" ? "default" : "secondary"} className="capitalize">
                           {a.estado}
                         </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {a.estado === "agendada" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              const motivo = window.prompt("Motivo de la cancelación (opcional)") ?? undefined;
+                              cancelAppointment(a.id, motivo || undefined);
+                              toast.success("Cita cancelada. Se notificó a la IPS.");
+                            }}
+                          >
+                            Cancelar
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
