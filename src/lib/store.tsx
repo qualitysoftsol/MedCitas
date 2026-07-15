@@ -24,6 +24,8 @@ export interface User {
   departamentos?: string[]; // servicios / departamentos médicos
   // Empresa specific
   nit?: string;
+  // Particular specific
+  cedula?: string;
 }
 
 export interface Slot {
