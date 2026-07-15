@@ -6,7 +6,7 @@ import {
 } from "@/components/ui/sidebar";
 import {
   CalendarDays, ClipboardList, FileUp, MapPin, Users, Building2, ShieldCheck,
-  UserCircle, LogOut, LayoutDashboard, Stethoscope, FilePlus2,
+  UserCircle, LogOut, LayoutDashboard, Stethoscope, FilePlus2, User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/NotificationBell";
