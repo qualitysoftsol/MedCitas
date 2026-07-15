@@ -158,6 +158,14 @@ const seedUsers: User[] = [
     profile: { nombre: "Constructora Demo S.A.S", telefono: "3105551234" },
     nit: "900123456-7",
   },
+  {
+    id: "u_part_1",
+    usuario: "particular_demo",
+    password: "part123",
+    role: "particular",
+    profile: { nombre: "Juan Pérez", telefono: "3201234567", direccion: "Cra 15 #93-40" },
+    cedula: "1020304050",
+  },
 ];
 
 function seedSlots(): Slot[] {
