@@ -15,6 +15,8 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppPerfilRouteImport } from './routes/app.perfil'
 import { Route as AppAdminIndexRouteImport } from './routes/app.admin.index'
 import { Route as AppParticularSolicitarRouteImport } from './routes/app.particular.solicitar'
+import { Route as AppParticularResultadosRouteImport } from './routes/app.particular.resultados'
+import { Route as AppParticularCitasRouteImport } from './routes/app.particular.citas'
 import { Route as AppIpsResultadosRouteImport } from './routes/app.ips.resultados'
 import { Route as AppIpsCitasRouteImport } from './routes/app.ips.citas'
 import { Route as AppIpsCalendarioRouteImport } from './routes/app.ips.calendario'
@@ -52,6 +54,16 @@ const AppAdminIndexRoute = AppAdminIndexRouteImport.update({
 const AppParticularSolicitarRoute = AppParticularSolicitarRouteImport.update({
   id: '/particular/solicitar',
   path: '/particular/solicitar',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppParticularResultadosRoute = AppParticularResultadosRouteImport.update({
+  id: '/particular/resultados',
+  path: '/particular/resultados',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppParticularCitasRoute = AppParticularCitasRouteImport.update({
+  id: '/particular/citas',
+  path: '/particular/citas',
   getParentRoute: () => AppRoute,
 } as any)
 const AppIpsResultadosRoute = AppIpsResultadosRouteImport.update({
@@ -108,6 +120,8 @@ export interface FileRoutesByFullPath {
   '/app/ips/calendario': typeof AppIpsCalendarioRoute
   '/app/ips/citas': typeof AppIpsCitasRoute
   '/app/ips/resultados': typeof AppIpsResultadosRoute
+  '/app/particular/citas': typeof AppParticularCitasRoute
+  '/app/particular/resultados': typeof AppParticularResultadosRoute
   '/app/particular/solicitar': typeof AppParticularSolicitarRoute
   '/app/admin/': typeof AppAdminIndexRoute
 }
@@ -124,6 +138,8 @@ export interface FileRoutesByTo {
   '/app/ips/calendario': typeof AppIpsCalendarioRoute
   '/app/ips/citas': typeof AppIpsCitasRoute
   '/app/ips/resultados': typeof AppIpsResultadosRoute
+  '/app/particular/citas': typeof AppParticularCitasRoute
+  '/app/particular/resultados': typeof AppParticularResultadosRoute
   '/app/particular/solicitar': typeof AppParticularSolicitarRoute
   '/app/admin': typeof AppAdminIndexRoute
 }
@@ -141,6 +157,8 @@ export interface FileRoutesById {
   '/app/ips/calendario': typeof AppIpsCalendarioRoute
   '/app/ips/citas': typeof AppIpsCitasRoute
   '/app/ips/resultados': typeof AppIpsResultadosRoute
+  '/app/particular/citas': typeof AppParticularCitasRoute
+  '/app/particular/resultados': typeof AppParticularResultadosRoute
   '/app/particular/solicitar': typeof AppParticularSolicitarRoute
   '/app/admin/': typeof AppAdminIndexRoute
 }
@@ -159,6 +177,8 @@ export interface FileRouteTypes {
     | '/app/ips/calendario'
     | '/app/ips/citas'
     | '/app/ips/resultados'
+    | '/app/particular/citas'
+    | '/app/particular/resultados'
     | '/app/particular/solicitar'
     | '/app/admin/'
   fileRoutesByTo: FileRoutesByTo
@@ -175,6 +195,8 @@ export interface FileRouteTypes {
     | '/app/ips/calendario'
     | '/app/ips/citas'
     | '/app/ips/resultados'
+    | '/app/particular/citas'
+    | '/app/particular/resultados'
     | '/app/particular/solicitar'
     | '/app/admin'
   id:
@@ -191,6 +213,8 @@ export interface FileRouteTypes {
     | '/app/ips/calendario'
     | '/app/ips/citas'
     | '/app/ips/resultados'
+    | '/app/particular/citas'
+    | '/app/particular/resultados'
     | '/app/particular/solicitar'
     | '/app/admin/'
   fileRoutesById: FileRoutesById
@@ -243,6 +267,20 @@ declare module '@tanstack/react-router' {
       path: '/particular/solicitar'
       fullPath: '/app/particular/solicitar'
       preLoaderRoute: typeof AppParticularSolicitarRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/particular/resultados': {
+      id: '/app/particular/resultados'
+      path: '/particular/resultados'
+      fullPath: '/app/particular/resultados'
+      preLoaderRoute: typeof AppParticularResultadosRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/particular/citas': {
+      id: '/app/particular/citas'
+      path: '/particular/citas'
+      fullPath: '/app/particular/citas'
+      preLoaderRoute: typeof AppParticularCitasRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/ips/resultados': {
@@ -314,6 +352,8 @@ interface AppRouteChildren {
   AppIpsCalendarioRoute: typeof AppIpsCalendarioRoute
   AppIpsCitasRoute: typeof AppIpsCitasRoute
   AppIpsResultadosRoute: typeof AppIpsResultadosRoute
+  AppParticularCitasRoute: typeof AppParticularCitasRoute
+  AppParticularResultadosRoute: typeof AppParticularResultadosRoute
   AppParticularSolicitarRoute: typeof AppParticularSolicitarRoute
   AppAdminIndexRoute: typeof AppAdminIndexRoute
 }
@@ -328,6 +368,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppIpsCalendarioRoute: AppIpsCalendarioRoute,
   AppIpsCitasRoute: AppIpsCitasRoute,
   AppIpsResultadosRoute: AppIpsResultadosRoute,
+  AppParticularCitasRoute: AppParticularCitasRoute,
+  AppParticularResultadosRoute: AppParticularResultadosRoute,
   AppParticularSolicitarRoute: AppParticularSolicitarRoute,
   AppAdminIndexRoute: AppAdminIndexRoute,
 }
