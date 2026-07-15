@@ -66,6 +66,17 @@ export interface Resultado {
   observaciones: string;
 }
 
+export interface Notification {
+  id: string;
+  userId: string;
+  tipo: "cita_agendada" | "cita_cancelada" | "resultado_cargado";
+  titulo: string;
+  mensaje: string;
+  emailTo?: string;
+  createdAt: string;
+  read: boolean;
+}
+
 interface StoreState {
   currentUser: User | null;
   users: User[];
