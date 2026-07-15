@@ -93,10 +93,15 @@ interface StoreCtx extends StoreState {
   changePassword: (oldP: string, newP: string) => { ok: boolean; error?: string };
   addSlots: (slots: Omit<Slot, "id" | "taken">[]) => void;
   bookAppointment: (a: Omit<Appointment, "id" | "estado">) => void;
+  cancelAppointment: (id: string, motivo?: string) => void;
   addResultado: (r: Omit<Resultado, "id">) => void;
+  markNotificationsRead: () => void;
+  clearNotifications: () => void;
 }
 
-const STORAGE = "medapp_state_v1";
+const STORAGE = "medapp_state_v2";
+const fakeEmail = (u: User) =>
+  `${u.usuario}@${u.role === "ips" ? "ips" : u.role === "empresa" ? "empresa" : "medcitas"}.co`;
 
 const seedUsers: User[] = [
   {
