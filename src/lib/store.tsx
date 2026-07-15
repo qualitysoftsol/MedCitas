@@ -259,20 +259,132 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }));
       },
       bookAppointment: (a) => {
-        setState((s) => ({
-          ...s,
-          slots: s.slots.map((sl) => (sl.id === a.slotId ? { ...sl, taken: true } : sl)),
-          appointments: [...s.appointments, { ...a, id: uid(), estado: "agendada" }],
-        }));
+        setState((s) => {
+          const apptId = uid();
+          const empresa = s.users.find((u) => u.id === a.empresaId);
+          const ips = s.users.find((u) => u.id === a.ipsId);
+          const nowIso = new Date().toISOString();
+          const mkNotif = (userId: string, target: User | undefined, titulo: string, mensaje: string, tipo: Notification["tipo"]): Notification => ({
+            id: uid(),
+            userId,
+            tipo,
+            titulo,
+            mensaje,
+            emailTo: target ? fakeEmail(target) : undefined,
+            createdAt: nowIso,
+            read: false,
+          });
+          const notifs: Notification[] = [
+            mkNotif(
+              a.empresaId,
+              empresa,
+              "Cita agendada",
+              `Cita para ${a.empleadoNombre} en ${ips?.profile.nombre ?? "IPS"} el ${a.fecha} a las ${a.hora}.`,
+              "cita_agendada",
+            ),
+            mkNotif(
+              a.ipsId,
+              ips,
+              "Nueva cita recibida",
+              `${empresa?.profile.nombre ?? "Empresa"} agendó examen ${a.tipoExamen} para ${a.empleadoNombre} el ${a.fecha} ${a.hora}.`,
+              "cita_agendada",
+            ),
+          ];
+          if (typeof window !== "undefined") {
+            notifs.forEach((n) => console.info(`[email→${n.emailTo}] ${n.titulo}: ${n.mensaje}`));
+          }
+          return {
+            ...s,
+            slots: s.slots.map((sl) => (sl.id === a.slotId ? { ...sl, taken: true } : sl)),
+            appointments: [...s.appointments, { ...a, id: apptId, estado: "agendada" }],
+            notifications: [...notifs, ...s.notifications],
+          };
+        });
+      },
+      cancelAppointment: (id, motivo) => {
+        setState((s) => {
+          const appt = s.appointments.find((a) => a.id === id);
+          if (!appt || appt.estado !== "agendada") return s;
+          const empresa = s.users.find((u) => u.id === appt.empresaId);
+          const ips = s.users.find((u) => u.id === appt.ipsId);
+          const nowIso = new Date().toISOString();
+          const suffix = motivo ? ` Motivo: ${motivo}.` : "";
+          const notifs: Notification[] = [
+            {
+              id: uid(),
+              userId: appt.empresaId,
+              tipo: "cita_cancelada",
+              titulo: "Cita cancelada",
+              mensaje: `Se canceló la cita de ${appt.empleadoNombre} en ${ips?.profile.nombre ?? "IPS"} (${appt.fecha} ${appt.hora}).${suffix}`,
+              emailTo: empresa ? fakeEmail(empresa) : undefined,
+              createdAt: nowIso,
+              read: false,
+            },
+            {
+              id: uid(),
+              userId: appt.ipsId,
+              tipo: "cita_cancelada",
+              titulo: "Cita cancelada",
+              mensaje: `${empresa?.profile.nombre ?? "Empresa"} canceló la cita de ${appt.empleadoNombre} (${appt.fecha} ${appt.hora}).${suffix}`,
+              emailTo: ips ? fakeEmail(ips) : undefined,
+              createdAt: nowIso,
+              read: false,
+            },
+          ];
+          if (typeof window !== "undefined") {
+            notifs.forEach((n) => console.info(`[email→${n.emailTo}] ${n.titulo}: ${n.mensaje}`));
+          }
+          return {
+            ...s,
+            appointments: s.appointments.map((a) => (a.id === id ? { ...a, estado: "cancelada" } : a)),
+            slots: s.slots.map((sl) => (sl.id === appt.slotId ? { ...sl, taken: false } : sl)),
+            notifications: [...notifs, ...s.notifications],
+          };
+        });
       },
       addResultado: (r) => {
-        setState((s) => ({
-          ...s,
-          resultados: [...s.resultados, { ...r, id: uid() }],
-          appointments: s.appointments.map((a) =>
-            a.id === r.appointmentId ? { ...a, estado: "atendida" } : a,
-          ),
-        }));
+        setState((s) => {
+          const empresa = s.users.find((u) => u.id === r.empresaId);
+          const ips = s.users.find((u) => u.id === r.ipsId);
+          const notif: Notification = {
+            id: uid(),
+            userId: r.empresaId,
+            tipo: "resultado_cargado",
+            titulo: "Resultado disponible",
+            mensaje: `${ips?.profile.nombre ?? "IPS"} cargó el resultado del examen de ${r.empleadoNombre}.`,
+            emailTo: empresa ? fakeEmail(empresa) : undefined,
+            createdAt: new Date().toISOString(),
+            read: false,
+          };
+          if (typeof window !== "undefined") {
+            console.info(`[email→${notif.emailTo}] ${notif.titulo}: ${notif.mensaje}`);
+          }
+          return {
+            ...s,
+            resultados: [...s.resultados, { ...r, id: uid() }],
+            appointments: s.appointments.map((a) =>
+              a.id === r.appointmentId ? { ...a, estado: "atendida" } : a,
+            ),
+            notifications: [notif, ...s.notifications],
+          };
+        });
+      },
+      markNotificationsRead: () => {
+        setState((s) => {
+          if (!s.currentUser) return s;
+          return {
+            ...s,
+            notifications: s.notifications.map((n) =>
+              n.userId === s.currentUser!.id ? { ...n, read: true } : n,
+            ),
+          };
+        });
+      },
+      clearNotifications: () => {
+        setState((s) => {
+          if (!s.currentUser) return s;
+          return { ...s, notifications: s.notifications.filter((n) => n.userId !== s.currentUser!.id) };
+        });
       },
     };
   }, [state]);
