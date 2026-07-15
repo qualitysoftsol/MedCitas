@@ -190,6 +190,7 @@ const defaultState: StoreState = {
   slots: seedSlots(),
   appointments: [],
   resultados: [],
+  notifications: [],
 };
 
 const StoreContext = createContext<StoreCtx | null>(null);
