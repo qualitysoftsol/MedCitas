@@ -2,14 +2,16 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useStore } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/app/ips/citas")({
   component: IpsCitas,
 });
 
 function IpsCitas() {
-  const { currentUser, appointments, users } = useStore();
+  const { currentUser, appointments, users, cancelAppointment } = useStore();
   const mine = appointments.filter((a) => a.ipsId === currentUser!.id);
   const nombreEmpresa = (id: string) => users.find((u) => u.id === id)?.profile.nombre ?? "—";
 
