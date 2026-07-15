@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { DEPARTAMENTOS } from "./colombia";
 
-export type Role = "ips" | "empresa" | "admin";
+export type Role = "ips" | "empresa" | "admin" | "particular";
 
 export interface Profile {
   nombre: string;
