@@ -49,18 +49,22 @@ export function IpsMap({
   markers,
   onSelect,
   onMapClick,
+  origin,
   height = 320,
 }: {
   center: { lat: number; lng: number };
   markers: MapMarker[];
   onSelect?: (id: string) => void;
   onMapClick?: (lat: number, lng: number) => void;
+  origin?: { lat: number; lng: number } | null;
   height?: number;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
+  const originRef = useRef<any>(null);
   const [error, setError] = useState<string | null>(null);
+
 
   useEffect(() => {
     let cancelled = false;
