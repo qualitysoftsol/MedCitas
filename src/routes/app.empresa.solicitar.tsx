@@ -176,6 +176,8 @@ function EmpresaSolicitar() {
             markers={markers}
             onSelect={(id) => { setSelectedIps(id); setSelectedSlot(null); }}
             onMapClick={(lat, lng) => setUserLoc({ lat, lng })}
+            origin={userLoc}
+
           />
           {ipsConDistancia.length === 0 ? (
             <p className="text-sm text-muted-foreground">No hay IPS registradas en {ciudad}.</p>
