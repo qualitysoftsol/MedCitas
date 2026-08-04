@@ -49,18 +49,22 @@ export function IpsMap({
   markers,
   onSelect,
   onMapClick,
+  origin,
   height = 320,
 }: {
   center: { lat: number; lng: number };
   markers: MapMarker[];
   onSelect?: (id: string) => void;
   onMapClick?: (lat: number, lng: number) => void;
+  origin?: { lat: number; lng: number } | null;
   height?: number;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
+  const originRef = useRef<any>(null);
   const [error, setError] = useState<string | null>(null);
+
 
   useEffect(() => {
     let cancelled = false;
@@ -106,6 +110,23 @@ export function IpsMap({
       if (onSelect) marker.addListener("click", () => onSelect(m.id));
       return marker;
     });
+    if (originRef.current) { originRef.current.setMap(null); originRef.current = null; }
+    if (origin) {
+      originRef.current = new window.google.maps.Marker({
+        position: origin,
+        map: mapRef.current,
+        title: "Dirección de residencia",
+        zIndex: 999,
+        icon: {
+          path: window.google.maps.SymbolPath.BACKWARD_CLOSED_ARROW,
+          scale: 6,
+          fillColor: "#e11d48",
+          fillOpacity: 1,
+          strokeColor: "#fff",
+          strokeWeight: 2,
+        },
+      });
+    }
     if (markers.length > 0) {
       const bounds = new window.google.maps.LatLngBounds();
       markers.forEach((m) => bounds.extend({ lat: m.lat, lng: m.lng }));
@@ -113,8 +134,10 @@ export function IpsMap({
       mapRef.current.fitBounds(bounds, 60);
     } else {
       mapRef.current.setCenter(center);
+      mapRef.current.setZoom(14);
     }
-  }, [markers, center]);
+  }, [markers, center, origin]);
+
 
   if (error) {
     return (

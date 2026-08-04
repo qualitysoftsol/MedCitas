@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { IpsMap } from "@/components/IpsMap";
+import { AddressInput } from "@/components/AddressInput";
+
 import { toast } from "sonner";
 import { MapPin } from "lucide-react";
 
@@ -136,15 +138,33 @@ function EmpresaSolicitar() {
             </div>
           </div>
           <div>
-            <Label>Dirección de residencia (opcional)</Label>
+            <Label>Dirección de residencia</Label>
             <div className="flex gap-2">
-              <Input value={direccion} onChange={(e) => setDireccion(e.target.value)} placeholder="Cra 15 #93-40" />
+              <div className="flex-1">
+                <AddressInput
+                  value={direccion}
+                  city={ciudad}
+                  placeholder="Cra 15 #93-40"
+                  onChange={setDireccion}
+                  onResolved={(loc, formatted) => {
+                    setUserLoc(loc);
+                    setDireccion(formatted);
+                    setSelectedIps(null);
+                    toast.success("Dirección ubicada: mostrando IPS cercanas");
+                  }}
+                />
+              </div>
               <Button type="button" variant="secondary" onClick={geolocate}>
                 <MapPin className="w-4 h-4 mr-1" />Mi ubicación
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Toca el mapa para fijar la ubicación exacta.</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {userLoc
+                ? "Ubicación fijada. Las IPS se ordenan por distancia a esta dirección."
+                : "Escribe la dirección y elige una sugerencia, o toca el mapa para fijarla."}
+            </p>
           </div>
+
         </CardContent>
       </Card>
 
@@ -156,6 +176,8 @@ function EmpresaSolicitar() {
             markers={markers}
             onSelect={(id) => { setSelectedIps(id); setSelectedSlot(null); }}
             onMapClick={(lat, lng) => setUserLoc({ lat, lng })}
+            origin={userLoc}
+
           />
           {ipsConDistancia.length === 0 ? (
             <p className="text-sm text-muted-foreground">No hay IPS registradas en {ciudad}.</p>
