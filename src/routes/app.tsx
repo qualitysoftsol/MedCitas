@@ -1,15 +1,18 @@
 import { createFileRoute, Outlet, Link, Navigate, useNavigate, useRouterState } from "@tanstack/react-router";
-import { useStore, type Role } from "@/lib/store";
+import { useAuth } from "@/lib/auth-context";
+import type { Profile } from "@/lib/database.types";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger, useSidebar,
 } from "@/components/ui/sidebar";
 import {
   CalendarDays, ClipboardList, FileUp, MapPin, Users, Building2, ShieldCheck,
-  UserCircle, LogOut, LayoutDashboard, Stethoscope, FilePlus2, User,
+  UserCircle, LogOut, LayoutDashboard, Stethoscope, FilePlus2, User, BookOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/NotificationBell";
+
+type Role = Profile['role'];
 
 export const Route = createFileRoute("/app")({
   component: AppLayout,
@@ -36,21 +39,22 @@ const NAV: Record<Role, NavItem[]> = {
   admin: [
     { to: "/app/admin", title: "Panel", icon: LayoutDashboard },
     { to: "/app/admin/registrar", title: "Registrar IPS/Empresa", icon: Users },
+    { to: "/app/admin/catalogos", title: "Catálogos", icon: BookOpen },
     { to: "/app/admin/menus", title: "Menús por rol", icon: ShieldCheck },
   ],
 };
 
 function AppLayout() {
-  const { currentUser, logout } = useStore();
+  const { profile, logout } = useAuth();
   const navigate = useNavigate();
-  if (!currentUser) return <Navigate to="/auth" />;
+  if (!profile) return <Navigate to="/auth" />;
 
-  const items = NAV[currentUser.role];
+  const items = NAV[profile.role];
 
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-[color:var(--muted)]">
-        <AppSidebar items={items} role={currentUser.role} />
+        <AppSidebar items={items} role={profile.role} />
         <div className="flex-1 flex flex-col min-w-0">
           <header className="h-14 flex items-center gap-2 border-b bg-card px-3 sticky top-0 z-10">
             <SidebarTrigger />
@@ -64,9 +68,9 @@ function AppLayout() {
               <NotificationBell />
               <Link to="/app/perfil" className="hidden sm:flex items-center gap-2 text-sm hover:text-primary px-2">
                 <UserCircle className="w-4 h-4" />
-                {currentUser.profile.nombre}
+                {profile.nombre}
               </Link>
-              <Button variant="ghost" size="sm" onClick={() => { logout(); navigate({ to: "/auth" }); }}>
+              <Button variant="ghost" size="sm" onClick={() => { void logout(); navigate({ to: "/auth" }); }}>
                 <LogOut className="w-4 h-4" />
               </Button>
             </div>

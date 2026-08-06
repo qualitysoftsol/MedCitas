@@ -1,10 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { useStore, DEPARTAMENTOS, type Role } from "@/lib/store";
+import { useAuth, DEPARTAMENTOS } from "@/lib/auth-context";
+import { supabase } from "@/lib/supabase";
+import { useDepartamentosMedicos, useClasificaciones } from "@/lib/hooks/useCatalogos";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 
@@ -13,9 +16,9 @@ export const Route = createFileRoute("/app/admin/registrar")({
 });
 
 function AdminRegistrar() {
-  const { register } = useStore();
-  const [role, setRole] = useState<Role>("ips");
-  const [usuario, setUsuario] = useState("");
+  useAuth();
+  const [role, setRole] = useState<"empresa" | "ips" | "particular">("ips");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [nombre, setNombre] = useState("");
   const [telefono, setTelefono] = useState("");
@@ -23,29 +26,55 @@ function AdminRegistrar() {
   const [cedula, setCedula] = useState("");
   const [depto, setDepto] = useState("");
   const [ciudad, setCiudad] = useState("");
-  const [deptosMed, setDeptosMed] = useState("Medicina General");
+  const [selectedDeptosMed, setSelectedDeptosMed] = useState<string[]>([]);
+  const [selectedClasificaciones, setSelectedClasificaciones] = useState<string[]>([]);
+
+  const { data: departamentosMedicos = [] } = useDepartamentosMedicos();
+  const { data: clasificaciones = [] } = useClasificaciones();
 
   const ciudades = DEPARTAMENTOS.find((d) => d.nombre === depto)?.ciudades ?? [];
 
-  const submit = () => {
-    if (!usuario.trim() || !password || !nombre.trim()) return toast.error("Campos requeridos");
+  const toggleItem = (list: string[], setList: (v: string[]) => void, value: string) => {
+    setList(list.includes(value) ? list.filter((x) => x !== value) : [...list, value]);
+  };
+
+  const submit = async () => {
+    if (!email.trim() || !password || !nombre.trim()) return toast.error("Campos requeridos");
     const c = ciudades.find((x) => x.nombre === ciudad);
-    const res = register({
-      usuario: usuario.trim(),
-      password,
-      role,
-      profile: { nombre: nombre.trim(), telefono },
-      ...(role === "empresa" ? { nit } : {}),
-      ...(role === "particular" ? { cedula } : {}),
-      ...(role === "ips" ? {
-        departamento: depto, ciudad, lat: c?.lat, lng: c?.lng,
-        departamentos: deptosMed.split(",").map((s) => s.trim()).filter(Boolean),
-      } : {}),
+    const { data: { session } } = await supabase.auth.getSession();
+
+    const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-user`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session?.access_token}`,
+      },
+      body: JSON.stringify({
+        email: email.trim(),
+        password,
+        role,
+        nombre: nombre.trim(),
+        telefono,
+        ...(role === "empresa" ? { nit } : {}),
+        ...(role === "particular" ? { cedula } : {}),
+        ...(role === "ips" ? {
+          departamento: depto,
+          ciudad,
+          lat: c?.lat,
+          lng: c?.lng,
+          departamentos_medicos: selectedDeptosMed,
+          clasificaciones: selectedClasificaciones,
+        } : {}),
+      }),
     });
-    if (!res.ok) return toast.error(res.error ?? "Error");
+
+    const data = await res.json();
+    if (!res.ok) return toast.error(data.error ?? "Error al crear usuario");
+
     const label = role === "ips" ? "IPS" : role === "empresa" ? "Empresa" : "Particular";
     toast.success(`${label} creada`);
-    setUsuario(""); setPassword(""); setNombre(""); setTelefono(""); setNit(""); setCedula(""); setDepto(""); setCiudad("");
+    setEmail(""); setPassword(""); setNombre(""); setTelefono(""); setNit(""); setCedula("");
+    setDepto(""); setCiudad(""); setSelectedDeptosMed([]); setSelectedClasificaciones([]);
   };
 
   const titulo = role === "ips" ? "IPS" : role === "empresa" ? "Empresa" : "Particular";
@@ -56,7 +85,7 @@ function AdminRegistrar() {
       <CardContent className="space-y-3">
         <div>
           <Label>Tipo</Label>
-          <Select value={role} onValueChange={(v) => setRole(v as Role)}>
+          <Select value={role} onValueChange={(v) => setRole(v as "empresa" | "ips" | "particular")}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="ips">IPS</SelectItem>
@@ -66,7 +95,7 @@ function AdminRegistrar() {
           </Select>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <div><Label>Usuario</Label><Input value={usuario} onChange={(e) => setUsuario(e.target.value)} /></div>
+          <div><Label>Correo electrónico</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
           <div><Label>Contraseña</Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} /></div>
         </div>
         <div><Label>{role === "ips" ? "Nombre IPS" : role === "particular" ? "Nombre completo" : "Razón social"}</Label><Input value={nombre} onChange={(e) => setNombre(e.target.value)} /></div>
@@ -97,7 +126,34 @@ function AdminRegistrar() {
                 </Select>
               </div>
             </div>
-            <div><Label>Departamentos médicos (coma)</Label><Input value={deptosMed} onChange={(e) => setDeptosMed(e.target.value)} /></div>
+            <div>
+              <Label>Departamentos médicos</Label>
+              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-2">
+                {departamentosMedicos.map((d) => (
+                  <label key={d.id} className="flex items-center gap-1.5 text-sm cursor-pointer select-none">
+                    <Checkbox
+                      checked={selectedDeptosMed.includes(d.nombre)}
+                      onCheckedChange={() => toggleItem(selectedDeptosMed, setSelectedDeptosMed, d.nombre)}
+                    />
+                    {d.nombre}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div>
+              <Label>Clasificaciones</Label>
+              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-2">
+                {clasificaciones.map((c) => (
+                  <label key={c.id} className="flex items-center gap-1.5 text-sm cursor-pointer select-none">
+                    <Checkbox
+                      checked={selectedClasificaciones.includes(c.nombre)}
+                      onCheckedChange={() => toggleItem(selectedClasificaciones, setSelectedClasificaciones, c.nombre)}
+                    />
+                    {c.nombre}
+                  </label>
+                ))}
+              </div>
+            </div>
           </>
         )}
         <Button onClick={submit} className="w-full">Crear</Button>

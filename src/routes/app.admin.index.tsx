@@ -1,18 +1,50 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useStore } from "@/lib/store";
+import { useAuth } from "@/lib/auth-context";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/lib/supabase";
+import type { Profile } from "@/lib/database.types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Building2, Stethoscope, ClipboardList, FileCheck2, User } from "lucide-react";
+import { IpsFotosSection } from "@/components/IpsFotosSection";
 
 export const Route = createFileRoute("/app/admin/")({
   component: AdminDashboard,
 });
 
 function AdminDashboard() {
-  const { users, appointments, resultados } = useStore();
-  const ips = users.filter((u) => u.role === "ips");
-  const emps = users.filter((u) => u.role === "empresa");
-  const parts = users.filter((u) => u.role === "particular");
+  useAuth(); // ensure auth context is available
+
+  const { data: users = [] } = useQuery({
+    queryKey: ['admin', 'users'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('profiles').select('*')
+      if (error) throw error
+      return data as Profile[]
+    },
+  });
+
+  const { data: appointments = [] } = useQuery({
+    queryKey: ['admin', 'appointments'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('appointments').select('id')
+      if (error) throw error
+      return data
+    },
+  });
+
+  const { data: resultados = [] } = useQuery({
+    queryKey: ['admin', 'resultados'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('resultados').select('id')
+      if (error) throw error
+      return data
+    },
+  });
+
+  const ips = users.filter((u) => u.role === 'ips');
+  const emps = users.filter((u) => u.role === 'empresa');
+  const parts = users.filter((u) => u.role === 'particular');
 
   const stats = [
     { label: "IPS registradas", value: ips.length, icon: Stethoscope },
@@ -48,12 +80,20 @@ function AdminDashboard() {
               <ul className="divide-y">
                 {ips.map((u) => (
                   <li key={u.id} className="py-2">
-                    <div className="font-medium">{u.profile.nombre}</div>
+                    <div className="font-medium">{u.nombre}</div>
                     <div className="text-xs text-muted-foreground">
-                      @{u.usuario} · {u.ciudad}, {u.departamento}
+                      {u.ciudad}, {u.departamento}
                     </div>
                     <div className="mt-1 flex flex-wrap gap-1">
-                      {(u.departamentos ?? []).map((d) => <Badge key={d} variant="secondary" className="text-xs">{d}</Badge>)}
+                      {(u.departamentos_medicos ?? []).map((d) => <Badge key={d} variant="secondary" className="text-xs">{d}</Badge>)}
+                    </div>
+                    {(u.clasificaciones ?? []).length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {u.clasificaciones!.map((c) => <Badge key={c} variant="outline" className="text-xs">{c}</Badge>)}
+                      </div>
+                    )}
+                    <div className="mt-3">
+                      <IpsFotosSection ipsId={u.id} />
                     </div>
                   </li>
                 ))}
@@ -68,9 +108,9 @@ function AdminDashboard() {
               <ul className="divide-y">
                 {emps.map((u) => (
                   <li key={u.id} className="py-2">
-                    <div className="font-medium">{u.profile.nombre}</div>
+                    <div className="font-medium">{u.nombre}</div>
                     <div className="text-xs text-muted-foreground">
-                      @{u.usuario} {u.nit ? `· NIT ${u.nit}` : ""}
+                      {u.nit ? `NIT ${u.nit}` : ""}
                     </div>
                   </li>
                 ))}
@@ -85,9 +125,9 @@ function AdminDashboard() {
               <ul className="divide-y">
                 {parts.map((u) => (
                   <li key={u.id} className="py-2">
-                    <div className="font-medium">{u.profile.nombre}</div>
+                    <div className="font-medium">{u.nombre}</div>
                     <div className="text-xs text-muted-foreground">
-                      @{u.usuario} {u.cedula ? `· CC ${u.cedula}` : ""}
+                      {u.cedula ? `CC ${u.cedula}` : ""}
                     </div>
                   </li>
                 ))}

@@ -1,50 +1,89 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { useStore } from "@/lib/store";
+import { useAuth } from "@/lib/auth-context";
+import { useUpdateProfile, useChangePassword } from "@/lib/hooks/useProfile";
+import { supabase } from "@/lib/supabase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
+import { IpsFotosSection } from "@/components/IpsFotosSection";
+import { useDepartamentosMedicos, useClasificaciones } from "@/lib/hooks/useCatalogos";
 
 export const Route = createFileRoute("/app/perfil")({
   component: Perfil,
 });
 
 function Perfil() {
-  const { currentUser, updateProfile, changePassword } = useStore();
+  const { profile } = useAuth();
+  const updateProfile = useUpdateProfile();
+  const changePassword = useChangePassword();
+
   const [nombre, setNombre] = useState("");
   const [telefono, setTelefono] = useState("");
   const [direccion, setDireccion] = useState("");
   const [descripcion, setDescripcion] = useState("");
-
-  const [oldP, setOldP] = useState("");
+  const [email, setEmail] = useState("");
   const [newP, setNewP] = useState("");
   const [confirmP, setConfirmP] = useState("");
+  const [selectedDeptosMed, setSelectedDeptosMed] = useState<string[]>([]);
+  const [selectedClasificaciones, setSelectedClasificaciones] = useState<string[]>([]);
+
+  const { data: departamentosMedicos = [] } = useDepartamentosMedicos();
+  const { data: catalogoClasificaciones = [] } = useClasificaciones();
 
   useEffect(() => {
-    if (!currentUser) return;
-    setNombre(currentUser.profile.nombre);
-    setTelefono(currentUser.profile.telefono ?? "");
-    setDireccion(currentUser.profile.direccion ?? "");
-    setDescripcion(currentUser.profile.descripcion ?? "");
-  }, [currentUser]);
+    if (!profile) return;
+    setNombre(profile.nombre);
+    setTelefono(profile.telefono ?? "");
+    setDireccion(profile.direccion ?? "");
+    setDescripcion(profile.descripcion ?? "");
+    setSelectedDeptosMed(profile.departamentos_medicos ?? []);
+    setSelectedClasificaciones(profile.clasificaciones ?? []);
+  }, [profile]);
 
-  if (!currentUser) return null;
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user?.email) setEmail(data.user.email);
+    });
+  }, []);
+
+  if (!profile) return null;
+
+  const toggleItem = (list: string[], setList: (v: string[]) => void, value: string) => {
+    setList(list.includes(value) ? list.filter((x) => x !== value) : [...list, value]);
+  };
 
   const saveProfile = () => {
-    updateProfile({ profile: { nombre, telefono, direccion, descripcion } });
-    toast.success("Perfil actualizado");
+    const patch: Parameters<typeof updateProfile.mutate>[0]['patch'] = {
+      nombre, telefono, direccion, descripcion,
+    };
+    if (profile.role === 'ips') {
+      patch.departamentos_medicos = selectedDeptosMed;
+      patch.clasificaciones = selectedClasificaciones;
+    }
+    updateProfile.mutate(
+      { id: profile.id, patch },
+      {
+        onSuccess: () => toast.success("Perfil actualizado"),
+        onError: (err: any) => toast.error(err.message),
+      }
+    );
   };
 
   const savePass = () => {
-    if (!newP || newP.length < 4) return toast.error("Contraseña muy corta");
+    if (!newP || newP.length < 6) return toast.error("La contraseña debe tener al menos 6 caracteres");
     if (newP !== confirmP) return toast.error("Las contraseñas no coinciden");
-    const res = changePassword(oldP, newP);
-    if (!res.ok) return toast.error(res.error ?? "Error");
-    toast.success("Contraseña actualizada");
-    setOldP(""); setNewP(""); setConfirmP("");
+    changePassword.mutate(newP, {
+      onSuccess: () => {
+        toast.success("Contraseña actualizada");
+        setNewP(""); setConfirmP("");
+      },
+      onError: (err: any) => toast.error(err.message),
+    });
   };
 
   return (
@@ -52,24 +91,59 @@ function Perfil() {
       <Card>
         <CardHeader><CardTitle>Datos del perfil</CardTitle></CardHeader>
         <CardContent className="space-y-3">
-          <div><Label>Usuario</Label><Input value={currentUser.usuario} disabled /></div>
+          <div><Label>Email</Label><Input value={email} disabled /></div>
           <div><Label>Nombre / Razón social</Label><Input value={nombre} onChange={(e) => setNombre(e.target.value)} /></div>
           <div><Label>Teléfono</Label><Input value={telefono} onChange={(e) => setTelefono(e.target.value)} /></div>
           <div><Label>Dirección</Label><Input value={direccion} onChange={(e) => setDireccion(e.target.value)} /></div>
           <div><Label>Descripción</Label><Textarea value={descripcion} onChange={(e) => setDescripcion(e.target.value)} /></div>
-          <Button onClick={saveProfile} className="w-full">Guardar cambios</Button>
+          {profile.role === 'ips' && (
+            <>
+              <div>
+                <Label>Departamentos médicos</Label>
+                <div className="mt-1 flex flex-wrap gap-x-4 gap-y-2">
+                  {departamentosMedicos.map((d) => (
+                    <label key={d.id} className="flex items-center gap-1.5 text-sm cursor-pointer select-none">
+                      <Checkbox
+                        checked={selectedDeptosMed.includes(d.nombre)}
+                        onCheckedChange={() => toggleItem(selectedDeptosMed, setSelectedDeptosMed, d.nombre)}
+                      />
+                      {d.nombre}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <Label>Clasificaciones</Label>
+                <div className="mt-1 flex flex-wrap gap-x-4 gap-y-2">
+                  {catalogoClasificaciones.map((c) => (
+                    <label key={c.id} className="flex items-center gap-1.5 text-sm cursor-pointer select-none">
+                      <Checkbox
+                        checked={selectedClasificaciones.includes(c.nombre)}
+                        onCheckedChange={() => toggleItem(selectedClasificaciones, setSelectedClasificaciones, c.nombre)}
+                      />
+                      {c.nombre}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+          <Button onClick={saveProfile} disabled={updateProfile.isPending} className="w-full">
+            {updateProfile.isPending ? "Guardando..." : "Guardar cambios"}
+          </Button>
         </CardContent>
       </Card>
-
       <Card>
         <CardHeader><CardTitle>Cambiar contraseña</CardTitle></CardHeader>
         <CardContent className="space-y-3">
-          <div><Label>Contraseña actual</Label><Input type="password" value={oldP} onChange={(e) => setOldP(e.target.value)} /></div>
           <div><Label>Nueva contraseña</Label><Input type="password" value={newP} onChange={(e) => setNewP(e.target.value)} /></div>
           <div><Label>Confirmar nueva</Label><Input type="password" value={confirmP} onChange={(e) => setConfirmP(e.target.value)} /></div>
-          <Button onClick={savePass} className="w-full">Actualizar contraseña</Button>
+          <Button onClick={savePass} disabled={changePassword.isPending} className="w-full">
+            {changePassword.isPending ? "Actualizando..." : "Actualizar contraseña"}
+          </Button>
         </CardContent>
       </Card>
+      {profile.role === 'ips' && <IpsFotosSection ipsId={profile.id} />}
     </div>
   );
 }
