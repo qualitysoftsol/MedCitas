@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import type { Clasificacion, DepartamentoMedico, TipoExamen } from '@/lib/database.types'
+import type { Clasificacion, Servicio, TipoExamen } from '@/lib/database.types'
 
 // ─── Clasificaciones ─────────────────────────────────────────────────────────
 
@@ -48,49 +48,52 @@ export function useDeleteClasificacion() {
   })
 }
 
-// ─── Departamentos Médicos ────────────────────────────────────────────────────
+// ─── Servicios ────────────────────────────────────────────────────────────────
 
-export function useDepartamentosMedicos() {
+export function useServicios() {
   return useQuery({
-    queryKey: ['catalogos', 'departamentos_medicos'],
+    queryKey: ['catalogos', 'servicios'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('departamentos_medicos').select('*').order('nombre')
+      const { data, error } = await supabase
+        .from('servicios')
+        .select('*, clasificacion:clasificaciones(id, nombre)')
+        .order('nombre')
       if (error) throw error
-      return data as DepartamentoMedico[]
+      return data as Servicio[]
     },
   })
 }
 
-export function useAddDepartamentoMedico() {
+export function useAddServicio() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (nombre: string) => {
-      const { error } = await supabase.from('departamentos_medicos').insert({ nombre })
+      const { error } = await supabase.from('servicios').insert({ nombre })
       if (error) throw error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['catalogos', 'departamentos_medicos'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['catalogos', 'servicios'] }),
   })
 }
 
-export function useUpdateDepartamentoMedico() {
+export function useUpdateServicio() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, nombre }: { id: string; nombre: string }) => {
-      const { error } = await supabase.from('departamentos_medicos').update({ nombre }).eq('id', id)
+    mutationFn: async ({ id, nombre, clasificacion_id }: { id: string; nombre: string; clasificacion_id: string | null }) => {
+      const { error } = await supabase.from('servicios').update({ nombre, clasificacion_id }).eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['catalogos', 'departamentos_medicos'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['catalogos', 'servicios'] }),
   })
 }
 
-export function useDeleteDepartamentoMedico() {
+export function useDeleteServicio() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('departamentos_medicos').delete().eq('id', id)
+      const { error } = await supabase.from('servicios').delete().eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['catalogos', 'departamentos_medicos'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['catalogos', 'servicios'] }),
   })
 }
 
@@ -138,4 +141,18 @@ export function useDeleteTipoExamen() {
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['catalogos', 'tipos_examen'] }),
   })
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+export function derivarClasificaciones(
+  nombresServicios: string[],
+  catalogo: Servicio[]
+): string[] {
+  const set = new Set<string>()
+  nombresServicios.forEach((n) => {
+    const s = catalogo.find((c) => c.nombre === n)
+    if (s?.clasificacion?.nombre) set.add(s.clasificacion.nombre)
+  })
+  return Array.from(set)
 }
