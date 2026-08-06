@@ -15,8 +15,7 @@ export type Database = {
           ciudad: string | null
           lat: number | null
           lng: number | null
-          departamentos_medicos: string[] | null
-          clasificaciones: string[] | null
+          servicios: string[] | null
           created_at: string
         }
         Insert: Omit<Database['public']['Tables']['profiles']['Row'], 'created_at'>
@@ -39,7 +38,7 @@ export type Database = {
           ips_id: string
           fecha: string
           hora: string
-          departamento_medico: string
+          servicio: string
           ciudad: string
           taken: boolean
           created_at: string
@@ -59,7 +58,7 @@ export type Database = {
           fecha: string
           hora: string
           ciudad: string
-          departamento_medico: string
+          servicio: string
           estado: 'agendada' | 'atendida' | 'cancelada'
           created_at: string
         }
@@ -101,10 +100,10 @@ export type Database = {
         Insert: { nombre: string }
         Update: Partial<{ nombre: string }>
       }
-      departamentos_medicos: {
-        Row: { id: string; nombre: string; created_at: string }
-        Insert: { nombre: string }
-        Update: Partial<{ nombre: string }>
+      servicios: {
+        Row: { id: string; nombre: string; clasificacion_id: string | null; created_at: string }
+        Insert: { nombre: string; clasificacion_id?: string | null }
+        Update: Partial<{ nombre: string; clasificacion_id: string | null }>
       }
       tipos_examen: {
         Row: { id: string; nombre: string; roles_permitidos: string[]; created_at: string }
@@ -122,5 +121,12 @@ export type Appointment = Database['public']['Tables']['appointments']['Row']
 export type Resultado = Database['public']['Tables']['resultados']['Row']
 export type Notification = Database['public']['Tables']['notifications']['Row']
 export type Clasificacion = Database['public']['Tables']['clasificaciones']['Row']
-export type DepartamentoMedico = Database['public']['Tables']['departamentos_medicos']['Row']
 export type TipoExamen = Database['public']['Tables']['tipos_examen']['Row']
+
+export type Servicio = {
+  id: string
+  nombre: string
+  clasificacion_id: string | null
+  clasificacion: { id: string; nombre: string } | null
+  created_at: string
+}
