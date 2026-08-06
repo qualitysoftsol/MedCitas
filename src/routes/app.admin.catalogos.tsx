@@ -90,6 +90,7 @@ function SimplePanel({ items, onAdd, onUpdate, onDelete, placeholder }: SimplePa
                   onChange={(e) => setEditName(e.target.value)}
                   className="h-7 text-sm"
                   onKeyDown={(e) => { if (e.key === "Enter") saveEdit(); if (e.key === "Escape") cancelEdit(); }}
+                  onBlur={saveEdit}
                   autoFocus
                 />
                 <Button size="icon" variant="ghost" onClick={saveEdit} className="h-7 w-7">
@@ -193,6 +194,7 @@ function TiposExamenPanel() {
                 onChange={(e) => setEditName(e.target.value)}
                 className="h-7 text-sm flex-1"
                 onKeyDown={(e) => { if (e.key === "Enter") saveEdit(t); if (e.key === "Escape") cancelEdit(); }}
+                onBlur={() => saveEdit(t)}
                 autoFocus
               />
             ) : (
