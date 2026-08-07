@@ -36,14 +36,21 @@ serve(async (req) => {
     </div>
   `
 
-  const recipients = [ipsUser?.email, solUser?.email].filter(Boolean) as string[]
-  await Promise.all(recipients.map((to) =>
-    fetch('https://api.resend.com/emails', {
+  const testEmail = Deno.env.get('RESEND_TEST_EMAIL')
+  const realRecipients = [ipsUser?.email, solUser?.email].filter(Boolean) as string[]
+  // In test mode all emails go to RESEND_TEST_EMAIL; in production send to real recipients
+  const recipients = testEmail ? [testEmail] : realRecipients
+  console.log('[notify-appointment] sending to:', recipients, testEmail ? '(test mode)' : '')
+
+  await Promise.all(recipients.map(async (to) => {
+    const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${Deno.env.get('RESEND_API_KEY')}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ from: 'MedCitas <onboarding@resend.dev>', to, subject, html }),
     })
-  ))
+    const resBody = await res.json()
+    console.log('[notify-appointment] Resend response for', to, ':', res.status, JSON.stringify(resBody))
+  }))
 
   // Insert in-app notifications for both parties
   const notifType = isCancel ? 'cita_cancelada' : 'cita_agendada'

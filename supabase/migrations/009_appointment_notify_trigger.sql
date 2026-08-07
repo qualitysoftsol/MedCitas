@@ -3,11 +3,8 @@
 -- al agendar o cancelar una cita via Edge Function notify-appointment
 -- ============================================================
 
--- pg_net ya viene habilitado en Supabase, pero por si acaso:
--- NOTA: En algunas instancias pg_net vive en el schema 'net' (no 'extensions').
--- Si esta línea falla, omitirla y verificar con:
---   SELECT routine_schema, routine_name FROM information_schema.routines WHERE routine_name = 'http_post';
-CREATE EXTENSION IF NOT EXISTS pg_net SCHEMA extensions;
+-- pg_net viene habilitado en Supabase en el schema 'net'
+CREATE EXTENSION IF NOT EXISTS pg_net;
 
 -- Función trigger: llama la Edge Function via HTTP asíncrono
 CREATE OR REPLACE FUNCTION notify_appointment_on_change()
@@ -28,8 +25,7 @@ BEGIN
   IF TG_OP = 'INSERT'
     OR (TG_OP = 'UPDATE' AND NEW.estado = 'cancelada' AND OLD.estado <> 'cancelada')
   THEN
-    -- NOTA: Si extensions.net.http_post falla, usar net.http_post sin prefijo 'extensions.'
-    PERFORM extensions.net.http_post(
+    PERFORM net.http_post(
       url     := _url,
       headers := _headers,
       body    := jsonb_build_object('record', row_to_json(NEW))
