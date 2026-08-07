@@ -114,8 +114,8 @@ function IpsCalendario() {
                     <div className="font-medium">{s.hora} · {s.servicio}</div>
                     <div className="text-xs text-muted-foreground">{s.ciudad}</div>
                   </div>
-                  <Badge variant={s.taken ? "secondary" : "default"}>
-                    {s.taken ? "Ocupado" : "Disponible"}
+                  <Badge variant={s.taken ? "destructive" : "default"}>
+                    {s.taken ? "Agendada" : "Disponible"}
                   </Badge>
                 </li>
               ))}
