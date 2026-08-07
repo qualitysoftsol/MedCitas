@@ -7,13 +7,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Building2, Stethoscope, ClipboardList, FileCheck2, User } from "lucide-react";
 import { IpsFotosSection } from "@/components/IpsFotosSection";
+import { useServicios, derivarClasificaciones } from "@/lib/hooks/useCatalogos";
 
 export const Route = createFileRoute("/app/admin/")({
   component: AdminDashboard,
 });
 
 function AdminDashboard() {
-  useAuth(); // ensure auth context is available
+  useAuth();
 
   const { data: users = [] } = useQuery({
     queryKey: ['admin', 'users'],
@@ -41,6 +42,8 @@ function AdminDashboard() {
       return data
     },
   });
+
+  const { data: catalogoServicios = [] } = useServicios();
 
   const ips = users.filter((u) => u.role === 'ips');
   const emps = users.filter((u) => u.role === 'empresa');
@@ -78,25 +81,28 @@ function AdminDashboard() {
           <CardContent>
             {ips.length === 0 ? <p className="text-sm text-muted-foreground">Sin IPS.</p> : (
               <ul className="divide-y">
-                {ips.map((u) => (
-                  <li key={u.id} className="py-2">
-                    <div className="font-medium">{u.nombre}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {u.ciudad}, {u.departamento}
-                    </div>
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {(u.departamentos_medicos ?? []).map((d) => <Badge key={d} variant="secondary" className="text-xs">{d}</Badge>)}
-                    </div>
-                    {(u.clasificaciones ?? []).length > 0 && (
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {u.clasificaciones!.map((c) => <Badge key={c} variant="outline" className="text-xs">{c}</Badge>)}
+                {ips.map((u) => {
+                  const clasifs = derivarClasificaciones(u.servicios ?? [], catalogoServicios);
+                  return (
+                    <li key={u.id} className="py-2">
+                      <div className="font-medium">{u.nombre}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {u.ciudad}, {u.departamento}
                       </div>
-                    )}
-                    <div className="mt-3">
-                      <IpsFotosSection ipsId={u.id} />
-                    </div>
-                  </li>
-                ))}
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {(u.servicios ?? []).map((s) => <Badge key={s} variant="secondary" className="text-xs">{s}</Badge>)}
+                      </div>
+                      {clasifs.length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {clasifs.map((c) => <Badge key={c} variant="outline" className="text-xs">{c}</Badge>)}
+                        </div>
+                      )}
+                      <div className="mt-3">
+                        <IpsFotosSection ipsId={u.id} />
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </CardContent>

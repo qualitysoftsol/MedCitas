@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, Stethoscope } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { Profile } from "@/lib/database.types";
+import { useServicios, derivarClasificaciones } from "@/lib/hooks/useCatalogos";
 
 interface Props {
   ips: Profile;
@@ -13,7 +14,10 @@ interface Props {
 
 export function IpsDetailPanel({ ips, distancia, onConfirm }: Props) {
   const { data: fotos = [] } = useIpsFotos(ips.id);
+  const { data: catalogoServicios = [] } = useServicios();
   const [current, setCurrent] = useState(0);
+
+  const clasificacionesDerived = derivarClasificaciones(ips.servicios ?? [], catalogoServicios);
 
   const prev = () => setCurrent((c) => Math.max(0, c - 1));
   const next = () => setCurrent((c) => Math.min(fotos.length - 1, c + 1));
@@ -62,17 +66,17 @@ export function IpsDetailPanel({ ips, distancia, onConfirm }: Props) {
         <div className="text-sm text-muted-foreground">{ips.direccion} · {distancia.toFixed(1)} km</div>
       </div>
 
-      {(ips.departamentos_medicos ?? []).length > 0 && (
+      {(ips.servicios ?? []).length > 0 && (
         <div className="flex flex-wrap gap-1">
-          {ips.departamentos_medicos!.map((d) => (
-            <Badge key={d} variant="secondary" className="text-xs">{d}</Badge>
+          {ips.servicios!.map((s) => (
+            <Badge key={s} variant="secondary" className="text-xs">{s}</Badge>
           ))}
         </div>
       )}
 
-      {(ips.clasificaciones ?? []).length > 0 && (
+      {clasificacionesDerived.length > 0 && (
         <div className="flex flex-wrap gap-1">
-          {ips.clasificaciones!.map((c) => (
+          {clasificacionesDerived.map((c) => (
             <Badge key={c} variant="outline" className="text-xs">{c}</Badge>
           ))}
         </div>
