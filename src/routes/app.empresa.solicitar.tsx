@@ -130,6 +130,44 @@ function EmpresaSolicitar() {
     );
   };
 
+  const parsearArchivo = (text: string): { nombre: string; cedula: string }[] => {
+    const lineas = text.split('\n').map((l) => l.trim()).filter(Boolean);
+    let ignoradas = 0;
+    const empleados: { nombre: string; cedula: string }[] = [];
+    for (const linea of lineas) {
+      // Ignorar cabecera
+      if (linea.toLowerCase().startsWith('nombre')) continue;
+      const partes = linea.split(';');
+      if (partes.length < 2 || !partes[0].trim() || !partes[1].trim()) {
+        ignoradas++;
+        continue;
+      }
+      empleados.push({ nombre: partes[0].trim(), cedula: partes[1].trim() });
+    }
+    if (ignoradas > 0) {
+      toast.warning(`${ignoradas} línea(s) ignoradas por formato inválido`);
+    }
+    return empleados;
+  };
+
+  const handleArchivoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      const empleados = parsearArchivo(text);
+      if (empleados.length === 0) {
+        setArchivoError('El archivo no contiene empleados válidos. Usa el formato: Nombre;Cedula');
+        setArchivoEmpleados([]);
+      } else {
+        setArchivoError(null);
+        setArchivoEmpleados(empleados);
+      }
+    };
+    reader.readAsText(file, 'UTF-8');
+  };
+
   const submit = () => {
     if (!empleadoNombre.trim() || !empleadoCedula.trim())
       return toast.error("Ingresa nombre y cédula del empleado");
@@ -182,16 +220,40 @@ function EmpresaSolicitar() {
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label>Nombre</Label>
-              <Input value={empleadoNombre} onChange={(e) => setEmpleadoNombre(e.target.value)} />
+          {modoSolicitud === 'individual' ? (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Nombre</Label>
+                <Input value={empleadoNombre} onChange={(e) => setEmpleadoNombre(e.target.value)} />
+              </div>
+              <div>
+                <Label>Cédula</Label>
+                <Input value={empleadoCedula} onChange={(e) => setEmpleadoCedula(e.target.value)} />
+              </div>
             </div>
-            <div>
-              <Label>Cédula</Label>
-              <Input value={empleadoCedula} onChange={(e) => setEmpleadoCedula(e.target.value)} />
+          ) : (
+            <div className="space-y-2">
+              <Label>Archivo de empleados (.txt)</Label>
+              <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed rounded-lg cursor-pointer hover:border-primary transition-colors">
+                <div className="flex flex-col items-center gap-1 text-sm text-muted-foreground">
+                  <Upload className="w-5 h-5" />
+                  <span>Haz clic para cargar el archivo</span>
+                  <span className="text-xs">Formato: Nombre;Cedula — un empleado por línea</span>
+                </div>
+                <input type="file" accept=".txt" className="hidden" onChange={handleArchivoChange} />
+              </label>
+              {archivoError && (
+                <p className="text-xs text-destructive">{archivoError}</p>
+              )}
+              {archivoEmpleados.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {archivoEmpleados.length} empleado(s) cargado(s):{' '}
+                  {archivoEmpleados.slice(0, 3).map((e) => e.nombre).join(', ')}
+                  {archivoEmpleados.length > 3 && '...'}
+                </p>
+              )}
             </div>
-          </div>
+          )}
           <div>
             <Label>Tipo de examen</Label>
             <Select value={tipoExamen} onValueChange={setTipoExamen}>
