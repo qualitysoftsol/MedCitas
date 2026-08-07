@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useStore } from "@/lib/store";
+import { useAuth } from "@/lib/auth-context";
+import { useAppointments, useCancelAppointment } from "@/lib/hooks/useAppointments";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,9 +12,9 @@ export const Route = createFileRoute("/app/particular/citas")({
 });
 
 function ParticularCitas() {
-  const { currentUser, appointments, users, cancelAppointment } = useStore();
-  const mine = appointments.filter((a) => a.empresaId === currentUser!.id);
-  const nombreIps = (id: string) => users.find((u) => u.id === id)?.profile.nombre ?? "—";
+  const { profile } = useAuth();
+  const { data: mine = [] } = useAppointments(profile?.id, profile?.role);
+  const cancelAppointment = useCancelAppointment();
 
   const stats = {
     total: mine.length,
@@ -62,8 +63,8 @@ function ParticularCitas() {
                     <TableRow key={a.id}>
                       <TableCell>{a.fecha}</TableCell>
                       <TableCell>{a.hora}</TableCell>
-                      <TableCell className="capitalize">{a.tipoExamen}</TableCell>
-                      <TableCell>{nombreIps(a.ipsId)}</TableCell>
+                      <TableCell className="capitalize">{a.tipo_examen}</TableCell>
+                      <TableCell>{a.ips?.nombre ?? "—"}</TableCell>
                       <TableCell>{a.ciudad}</TableCell>
                       <TableCell>
                         <Badge variant={a.estado === "atendida" ? "default" : "secondary"} className="capitalize">
@@ -76,9 +77,10 @@ function ParticularCitas() {
                             size="sm"
                             variant="outline"
                             onClick={() => {
-                              const motivo = window.prompt("Motivo de la cancelación (opcional)") ?? undefined;
-                              cancelAppointment(a.id, motivo || undefined);
-                              toast.success("Cita cancelada. Se notificó a la IPS.");
+                              cancelAppointment.mutate({ id: a.id, slotId: a.slot_id }, {
+                                onSuccess: () => toast.success("Cita cancelada"),
+                                onError: (err: any) => toast.error(err.message),
+                              });
                             }}
                           >
                             Cancelar

@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { useStore } from "@/lib/store";
+import { useAuth } from "@/lib/auth-context";
+import { useAppointments } from "@/lib/hooks/useAppointments";
+import { useResultados, useAddResultado } from "@/lib/hooks/useResultados";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,9 +16,12 @@ export const Route = createFileRoute("/app/ips/resultados")({
 });
 
 function IpsResultados() {
-  const { currentUser, appointments, resultados, addResultado } = useStore();
-  const pendientes = appointments.filter((a) => a.ipsId === currentUser!.id && a.estado === "agendada");
-  const atendidas = resultados.filter((r) => r.ipsId === currentUser!.id);
+  const { profile } = useAuth();
+  const { data: appointments = [] } = useAppointments(profile?.id, 'ips');
+  const { data: atendidas = [] } = useResultados(profile?.id, 'ips');
+  const addResultado = useAddResultado();
+
+  const pendientes = appointments.filter((a) => a.estado === 'agendada');
 
   const [open, setOpen] = useState(false);
   const [apptId, setApptId] = useState<string>("");
@@ -28,19 +33,23 @@ function IpsResultados() {
     const appt = appointments.find((a) => a.id === apptId);
     if (!appt) return toast.error("Selecciona una cita");
     if (!diagnostico.trim()) return toast.error("Diagnóstico requerido");
-    addResultado({
-      appointmentId: appt.id,
-      empresaId: appt.empresaId,
-      ipsId: appt.ipsId,
-      empleadoNombre: appt.empleadoNombre,
-      empleadoCedula: appt.empleadoCedula,
+    addResultado.mutate({
+      appointment_id: appt.id,
+      solicitante_id: appt.solicitante_id,
+      ips_id: appt.ips_id,
+      empleado_nombre: appt.empleado_nombre,
+      empleado_cedula: appt.empleado_cedula,
       fecha: new Date().toISOString().slice(0, 10),
       diagnostico,
       apto,
       observaciones: obs,
+    }, {
+      onSuccess: () => {
+        toast.success("Resultado cargado");
+        setOpen(false); setApptId(""); setDiagnostico(""); setObs(""); setApto("apto");
+      },
+      onError: (err: any) => toast.error(err.message),
     });
-    toast.success("Resultado cargado");
-    setOpen(false); setApptId(""); setDiagnostico(""); setObs(""); setApto("apto");
   };
 
   return (
@@ -61,7 +70,7 @@ function IpsResultados() {
                       <SelectContent>
                         {pendientes.map((a) => (
                           <SelectItem key={a.id} value={a.id}>
-                            {a.fecha} {a.hora} · {a.empleadoNombre} ({a.empleadoCedula})
+                            {a.fecha} {a.hora} · {a.empleado_nombre} ({a.empleado_cedula})
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -99,7 +108,7 @@ function IpsResultados() {
             <ul className="divide-y">
               {pendientes.map((a) => (
                 <li key={a.id} className="py-2 text-sm">
-                  <b>{a.empleadoNombre}</b> · {a.fecha} {a.hora} · {a.departamentoMedico}
+                  <b>{a.empleado_nombre}</b> · {a.fecha} {a.hora} · {a.servicio}
                 </li>
               ))}
             </ul>
@@ -116,7 +125,7 @@ function IpsResultados() {
             <ul className="divide-y">
               {atendidas.map((r) => (
                 <li key={r.id} className="py-3">
-                  <div className="font-medium">{r.empleadoNombre} · {r.empleadoCedula}</div>
+                  <div className="font-medium">{r.empleado_nombre} · {r.empleado_cedula}</div>
                   <div className="text-xs text-muted-foreground">{r.fecha} — Aptitud: {r.apto.replace("_", " ")}</div>
                   <div className="text-sm mt-1">{r.diagnostico}</div>
                   {r.observaciones && <div className="text-xs text-muted-foreground mt-1">Obs: {r.observaciones}</div>}

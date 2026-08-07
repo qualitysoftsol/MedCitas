@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { useStore, DEPARTAMENTOS } from "@/lib/store";
+import { useAuth } from "@/lib/auth-context";
+import { DEPARTAMENTOS } from "@/lib/colombia";
+import { useSlots, useAddSlots } from "@/lib/hooks/useSlots";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,34 +17,38 @@ export const Route = createFileRoute("/app/ips/calendario")({
 });
 
 function IpsCalendario() {
-  const { currentUser, slots, addSlots } = useStore();
+  const { profile } = useAuth();
   const [date, setDate] = useState<Date | undefined>(new Date());
-  const [depMed, setDepMed] = useState(currentUser?.departamentos?.[0] ?? "Medicina General");
-  const [depto, setDepto] = useState(currentUser?.departamento ?? "");
-  const [ciudad, setCiudad] = useState(currentUser?.ciudad ?? "");
+  const [depMed, setDepMed] = useState(profile?.servicios?.[0] ?? "Medicina General");
+  const [depto, setDepto] = useState(profile?.departamento ?? "");
+  const [ciudad, setCiudad] = useState(profile?.ciudad ?? "");
   const [horas, setHoras] = useState("08:00, 09:00, 10:00, 14:00, 15:00");
 
-  const ciudades = DEPARTAMENTOS.find((d) => d.nombre === depto)?.ciudades ?? [];
+  const { data: slots = [] } = useSlots(profile?.id);
+  const addSlots = useAddSlots();
 
-  const misSlots = slots.filter(
-    (s) => s.ipsId === currentUser!.id && (!date || s.fecha === date.toISOString().slice(0, 10)),
-  );
+  const ciudades = DEPARTAMENTOS.find((d) => d.nombre === depto)?.ciudades ?? [];
+  const selectedDate = date?.toISOString().slice(0, 10);
+  const misSlots = slots.filter((s) => !selectedDate || s.fecha === selectedDate);
 
   const handleAdd = () => {
     if (!date) return toast.error("Selecciona una fecha");
     if (!ciudad || !depto) return toast.error("Selecciona departamento y ciudad");
     const fecha = date.toISOString().slice(0, 10);
     const lista = horas.split(",").map((h) => h.trim()).filter(Boolean);
-    addSlots(
+    addSlots.mutate(
       lista.map((h) => ({
-        ipsId: currentUser!.id,
+        ips_id: profile!.id,
         fecha,
         hora: h,
-        departamentoMedico: depMed,
+        servicio: depMed,
         ciudad,
       })),
+      {
+        onSuccess: () => toast.success(`${lista.length} horarios agregados`),
+        onError: (err: unknown) => toast.error((err as Error).message),
+      }
     );
-    toast.success(`${lista.length} horarios agregados`);
   };
 
   return (
@@ -74,11 +80,11 @@ function IpsCalendario() {
             </div>
           </div>
           <div>
-            <Label>Departamento médico</Label>
+            <Label>Servicio</Label>
             <Select value={depMed} onValueChange={setDepMed}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                {(currentUser?.departamentos ?? ["Medicina General"]).map((d) => (
+                {(profile?.servicios ?? ["Medicina General"]).map((d) => (
                   <SelectItem key={d} value={d}>{d}</SelectItem>
                 ))}
               </SelectContent>
@@ -88,10 +94,11 @@ function IpsCalendario() {
             <Label>Horas (separadas por coma)</Label>
             <Input value={horas} onChange={(e) => setHoras(e.target.value)} />
           </div>
-          <Button onClick={handleAdd} className="w-full">Agregar horarios</Button>
+          <Button onClick={handleAdd} disabled={addSlots.isPending} className="w-full">
+            {addSlots.isPending ? "Guardando..." : "Agregar horarios"}
+          </Button>
         </CardContent>
       </Card>
-
       <Card>
         <CardHeader>
           <CardTitle>Horarios {date ? `del ${date.toLocaleDateString("es-CO")}` : ""}</CardTitle>
@@ -104,7 +111,7 @@ function IpsCalendario() {
               {misSlots.sort((a, b) => a.hora.localeCompare(b.hora)).map((s) => (
                 <li key={s.id} className="py-2 flex items-center justify-between">
                   <div>
-                    <div className="font-medium">{s.hora} · {s.departamentoMedico}</div>
+                    <div className="font-medium">{s.hora} · {s.servicio}</div>
                     <div className="text-xs text-muted-foreground">{s.ciudad}</div>
                   </div>
                   <Badge variant={s.taken ? "secondary" : "default"}>
