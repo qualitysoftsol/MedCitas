@@ -18,7 +18,7 @@ import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { useAvailableSlots } from "@/lib/hooks/useSlots";
 import { useBookAppointment } from "@/lib/hooks/useAppointments";
-import { useClasificaciones, useTiposExamen } from "@/lib/hooks/useCatalogos";
+import { useClasificaciones, useTiposExamen, useServicios, derivarClasificaciones } from "@/lib/hooks/useCatalogos";
 import type { Profile, IpsFoto } from "@/lib/database.types";
 import { IpsDetailPanel } from "@/components/IpsDetailPanel";
 
@@ -44,6 +44,7 @@ function ParticularSolicitar() {
 
   const { data: clasificaciones = [] } = useClasificaciones();
   const { data: tiposExamen = [] } = useTiposExamen();
+  const { data: catalogoServicios = [] } = useServicios();
 
   // Memoized to keep stable reference — useEffect depends on this
   const tiposDisponibles = useMemo(
@@ -104,14 +105,15 @@ function ParticularSolicitar() {
     return ipsEnCiudad
       .filter((ips) => {
         if (filtroClasificaciones.length === 0) return true;
-        return filtroClasificaciones.some((c) => (ips.clasificaciones ?? []).includes(c));
+        return derivarClasificaciones(ips.servicios ?? [], catalogoServicios)
+          .some((c) => filtroClasificaciones.includes(c));
       })
       .map((ips) => ({
         ips,
         distancia: ips.lat && ips.lng ? haversineKm(centro, { lat: ips.lat, lng: ips.lng }) : 999,
       }))
       .sort((a, b) => a.distancia - b.distancia);
-  }, [ipsEnCiudad, centro, filtroClasificaciones]);
+  }, [ipsEnCiudad, centro, filtroClasificaciones, catalogoServicios]);
 
   const markers = ipsConDistancia.map(({ ips }) => ({
     id: ips.id,
@@ -143,7 +145,7 @@ function ParticularSolicitar() {
       fecha: slot.fecha,
       hora: slot.hora,
       ciudad: slot.ciudad,
-      departamento_medico: slot.departamento_medico,
+      servicio: slot.servicio,
     }, {
       onSuccess: () => {
         toast.success("Cita agendada");
@@ -324,7 +326,7 @@ function ParticularSolicitar() {
                     className={`text-left rounded-md border p-2 hover:border-primary transition ${selectedSlot===s.id ? "border-primary bg-accent/50" : ""}`}
                   >
                     <div className="text-sm font-medium">{s.fecha}</div>
-                    <div className="text-xs text-muted-foreground">{s.hora} · {s.departamento_medico}</div>
+                    <div className="text-xs text-muted-foreground">{s.hora} · {s.servicio}</div>
                   </button>
                 ))}
               </div>
