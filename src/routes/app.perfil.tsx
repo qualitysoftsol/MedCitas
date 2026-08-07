@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { IpsFotosSection } from "@/components/IpsFotosSection";
-import { useServicios, useClasificaciones } from "@/lib/hooks/useCatalogos";
+import { useServicios } from "@/lib/hooks/useCatalogos";
 
 export const Route = createFileRoute("/app/perfil")({
   component: Perfil,
@@ -30,10 +30,8 @@ function Perfil() {
   const [newP, setNewP] = useState("");
   const [confirmP, setConfirmP] = useState("");
   const [selectedServicios, setSelectedServicios] = useState<string[]>([]);
-  const [selectedClasificaciones, setSelectedClasificaciones] = useState<string[]>([]);
 
   const { data: servicios = [] } = useServicios();
-  const { data: catalogoClasificaciones = [] } = useClasificaciones();
 
   useEffect(() => {
     if (!profile) return;
@@ -42,7 +40,6 @@ function Perfil() {
     setDireccion(profile.direccion ?? "");
     setDescripcion(profile.descripcion ?? "");
     setSelectedServicios(profile.servicios ?? []);
-    setSelectedClasificaciones(profile.clasificaciones ?? []);
   }, [profile]);
 
   useEffect(() => {
@@ -63,7 +60,6 @@ function Perfil() {
     };
     if (profile.role === 'ips') {
       patch.servicios = selectedServicios;
-      patch.clasificaciones = selectedClasificaciones;
     }
     updateProfile.mutate(
       { id: profile.id, patch },
@@ -108,20 +104,6 @@ function Perfil() {
                         onCheckedChange={() => toggleItem(selectedServicios, setSelectedServicios, d.nombre)}
                       />
                       {d.nombre}
-                    </label>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <Label>Clasificaciones</Label>
-                <div className="mt-1 flex flex-wrap gap-x-4 gap-y-2">
-                  {catalogoClasificaciones.map((c) => (
-                    <label key={c.id} className="flex items-center gap-1.5 text-sm cursor-pointer select-none">
-                      <Checkbox
-                        checked={selectedClasificaciones.includes(c.nombre)}
-                        onCheckedChange={() => toggleItem(selectedClasificaciones, setSelectedClasificaciones, c.nombre)}
-                      />
-                      {c.nombre}
                     </label>
                   ))}
                 </div>

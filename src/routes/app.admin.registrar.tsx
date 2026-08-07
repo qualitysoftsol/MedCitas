@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useAuth, DEPARTAMENTOS } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
-import { useServicios, useClasificaciones } from "@/lib/hooks/useCatalogos";
+import { useServicios } from "@/lib/hooks/useCatalogos";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,10 +27,8 @@ function AdminRegistrar() {
   const [depto, setDepto] = useState("");
   const [ciudad, setCiudad] = useState("");
   const [selectedServicios, setSelectedServicios] = useState<string[]>([]);
-  const [selectedClasificaciones, setSelectedClasificaciones] = useState<string[]>([]);
 
   const { data: servicios = [] } = useServicios();
-  const { data: clasificaciones = [] } = useClasificaciones();
 
   const ciudades = DEPARTAMENTOS.find((d) => d.nombre === depto)?.ciudades ?? [];
 
@@ -63,7 +61,6 @@ function AdminRegistrar() {
           lat: c?.lat,
           lng: c?.lng,
           servicios: selectedServicios,
-          clasificaciones: selectedClasificaciones,
         } : {}),
       }),
     });
@@ -74,7 +71,7 @@ function AdminRegistrar() {
     const label = role === "ips" ? "IPS" : role === "empresa" ? "Empresa" : "Particular";
     toast.success(`${label} creada`);
     setEmail(""); setPassword(""); setNombre(""); setTelefono(""); setNit(""); setCedula("");
-    setDepto(""); setCiudad(""); setSelectedServicios([]); setSelectedClasificaciones([]);
+    setDepto(""); setCiudad(""); setSelectedServicios([]);
   };
 
   const titulo = role === "ips" ? "IPS" : role === "empresa" ? "Empresa" : "Particular";
@@ -136,20 +133,6 @@ function AdminRegistrar() {
                       onCheckedChange={() => toggleItem(selectedServicios, setSelectedServicios, d.nombre)}
                     />
                     {d.nombre}
-                  </label>
-                ))}
-              </div>
-            </div>
-            <div>
-              <Label>Clasificaciones</Label>
-              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-2">
-                {clasificaciones.map((c) => (
-                  <label key={c.id} className="flex items-center gap-1.5 text-sm cursor-pointer select-none">
-                    <Checkbox
-                      checked={selectedClasificaciones.includes(c.nombre)}
-                      onCheckedChange={() => toggleItem(selectedClasificaciones, setSelectedClasificaciones, c.nombre)}
-                    />
-                    {c.nombre}
                   </label>
                 ))}
               </div>
