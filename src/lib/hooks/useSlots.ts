@@ -36,6 +36,8 @@ export function useAvailableSlots(ipsId: string | null) {
       return data as Slot[]
     },
     enabled: !!ipsId,
+    staleTime: 0,
+    refetchOnMount: 'always',
   })
 }
 
