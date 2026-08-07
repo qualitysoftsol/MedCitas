@@ -48,6 +48,7 @@ export function useBookAppointment() {
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: ['appointments'] })
       qc.invalidateQueries({ queryKey: ['slots', 'available', variables.ips_id] })
+      qc.invalidateQueries({ queryKey: ['slots', variables.ips_id] })
     },
   })
 }
@@ -90,6 +91,7 @@ export function useBookAppointmentsBatch() {
       qc.invalidateQueries({ queryKey: ['appointments'] })
       const ipsId = citas[0]?.ips_id
       if (ipsId) qc.invalidateQueries({ queryKey: ['slots', 'available', ipsId] })
+      if (ipsId) qc.invalidateQueries({ queryKey: ['slots', ipsId] })
     },
   })
 }
