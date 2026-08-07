@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useAppointments } from "@/lib/hooks/useAppointments";
-import { useResultados, useAddResultado } from "@/lib/hooks/useResultados";
+import { useResultados, useAddResultado, useResultadoPdfUrl } from "@/lib/hooks/useResultados";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,10 +10,27 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import type { Resultado } from "@/lib/database.types";
 
 export const Route = createFileRoute("/app/ips/resultados")({
   component: IpsResultados,
 });
+
+function ResultadoPdfLink({ path }: { path: string }) {
+  const { data: signedUrl, isLoading } = useResultadoPdfUrl(path);
+  if (isLoading) return <span className="text-xs text-muted-foreground">Cargando...</span>;
+  if (!signedUrl) return null;
+  return (
+    <a
+      href={signedUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-xs text-primary underline"
+    >
+      Ver PDF ↗
+    </a>
+  );
+}
 
 function IpsResultados() {
   const { profile } = useAuth();
@@ -28,11 +45,21 @@ function IpsResultados() {
   const [diagnostico, setDiagnostico] = useState("");
   const [apto, setApto] = useState<"apto" | "apto_restricciones" | "no_apto">("apto");
   const [obs, setObs] = useState("");
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const resetForm = () => {
+    setApptId(""); setDiagnostico(""); setObs(""); setApto("apto");
+    setPdfFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
 
   const submit = () => {
     const appt = appointments.find((a) => a.id === apptId);
     if (!appt) return toast.error("Selecciona una cita");
     if (!diagnostico.trim()) return toast.error("Diagnóstico requerido");
+    if (!pdfFile) return toast.error("El PDF del resultado es obligatorio");
+
     addResultado.mutate({
       appointment_id: appt.id,
       solicitante_id: appt.solicitante_id,
@@ -43,10 +70,12 @@ function IpsResultados() {
       diagnostico,
       apto,
       observaciones: obs,
+      pdfFile,
     }, {
       onSuccess: () => {
         toast.success("Resultado cargado");
-        setOpen(false); setApptId(""); setDiagnostico(""); setObs(""); setApto("apto");
+        setOpen(false);
+        resetForm();
       },
       onError: (err: any) => toast.error(err.message),
     });
@@ -58,7 +87,7 @@ function IpsResultados() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Citas pendientes de resultado</CardTitle>
-            <Dialog open={open} onOpenChange={setOpen}>
+            <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
               <DialogTrigger asChild><Button>Cargar resultado</Button></DialogTrigger>
               <DialogContent>
                 <DialogHeader><DialogTitle>Nuevo resultado</DialogTitle></DialogHeader>
@@ -95,8 +124,27 @@ function IpsResultados() {
                     <Label>Observaciones</Label>
                     <Textarea value={obs} onChange={(e) => setObs(e.target.value)} />
                   </div>
+                  <div>
+                    <Label>Resultado PDF <span className="text-destructive">*</span></Label>
+                    <div className="mt-1">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".pdf,application/pdf"
+                        className="block w-full text-sm text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer"
+                        onChange={(e) => setPdfFile(e.target.files?.[0] ?? null)}
+                      />
+                      {pdfFile && (
+                        <p className="text-xs text-muted-foreground mt-1">{pdfFile.name}</p>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                <DialogFooter><Button onClick={submit}>Guardar</Button></DialogFooter>
+                <DialogFooter>
+                  <Button onClick={submit} disabled={addResultado.isPending}>
+                    {addResultado.isPending ? "Guardando..." : "Guardar"}
+                  </Button>
+                </DialogFooter>
               </DialogContent>
             </Dialog>
           </div>
@@ -123,12 +171,17 @@ function IpsResultados() {
             <p className="text-sm text-muted-foreground">Sin resultados aún.</p>
           ) : (
             <ul className="divide-y">
-              {atendidas.map((r) => (
+              {atendidas.map((r: Resultado) => (
                 <li key={r.id} className="py-3">
                   <div className="font-medium">{r.empleado_nombre} · {r.empleado_cedula}</div>
                   <div className="text-xs text-muted-foreground">{r.fecha} — Aptitud: {r.apto.replace("_", " ")}</div>
                   <div className="text-sm mt-1">{r.diagnostico}</div>
                   {r.observaciones && <div className="text-xs text-muted-foreground mt-1">Obs: {r.observaciones}</div>}
+                  {r.pdf_url && (
+                    <div className="mt-1">
+                      <ResultadoPdfLink path={r.pdf_url} />
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>
