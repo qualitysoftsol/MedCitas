@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { IpsFotosSection } from "@/components/IpsFotosSection";
+import { AddressInput } from "@/components/AddressInput";
 import { useServicios } from "@/lib/hooks/useCatalogos";
 
 export const Route = createFileRoute("/app/perfil")({
@@ -30,6 +31,7 @@ function Perfil() {
   const [newP, setNewP] = useState("");
   const [confirmP, setConfirmP] = useState("");
   const [selectedServicios, setSelectedServicios] = useState<string[]>([]);
+  const [resolvedLoc, setResolvedLoc] = useState<{ lat: number; lng: number } | null>(null);
 
   const { data: servicios = [] } = useServicios();
 
@@ -60,6 +62,10 @@ function Perfil() {
     };
     if (profile.role === 'ips') {
       patch.servicios = selectedServicios;
+      if (resolvedLoc) {
+        patch.lat = resolvedLoc.lat;
+        patch.lng = resolvedLoc.lng;
+      }
     }
     updateProfile.mutate(
       { id: profile.id, patch },
@@ -90,7 +96,25 @@ function Perfil() {
           <div><Label>Email</Label><Input value={email} disabled /></div>
           <div><Label>Nombre / Razón social</Label><Input value={nombre} onChange={(e) => setNombre(e.target.value)} /></div>
           <div><Label>Teléfono</Label><Input value={telefono} onChange={(e) => setTelefono(e.target.value)} /></div>
-          <div><Label>Dirección</Label><Input value={direccion} onChange={(e) => setDireccion(e.target.value)} /></div>
+          <div>
+            <Label>Dirección</Label>
+            {profile.role === 'ips' ? (
+              <>
+                <AddressInput
+                  value={direccion}
+                  city={profile.ciudad ?? undefined}
+                  onChange={(v) => { setDireccion(v); setResolvedLoc(null); }}
+                  onResolved={(loc, formatted) => { setDireccion(formatted); setResolvedLoc(loc); }}
+                  placeholder="Cra 49 #91-25, Barrios Unidos"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Selecciona una sugerencia para actualizar tu ubicación en el mapa.
+                </p>
+              </>
+            ) : (
+              <Input value={direccion} onChange={(e) => setDireccion(e.target.value)} />
+            )}
+          </div>
           <div><Label>Descripción</Label><Textarea value={descripcion} onChange={(e) => setDescripcion(e.target.value)} /></div>
           {profile.role === 'ips' && (
             <>

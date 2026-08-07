@@ -23,7 +23,7 @@ serve(async (req) => {
   if (callerProfile?.role !== 'admin') return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: corsHeaders })
 
   const body = await req.json()
-  const { email, password, role, nombre, telefono, nit, cedula, departamento, ciudad, lat, lng, servicios } = body
+  const { email, password, role, nombre, telefono, nit, cedula, departamento, ciudad, lat, lng, direccion, servicios } = body
 
   if (!email || !password || !role || !nombre) {
     return new Response(JSON.stringify({ error: 'Campos requeridos: email, password, role, nombre' }), { status: 400, headers: corsHeaders })
@@ -38,7 +38,7 @@ serve(async (req) => {
     email,
     password,
     email_confirm: true,
-    user_metadata: { role, nombre, telefono, nit, cedula, departamento, ciudad, lat, lng, servicios },
+    user_metadata: { role, nombre, telefono, nit, cedula, departamento, ciudad, lat, lng, direccion, servicios },
   })
 
   if (error) return new Response(JSON.stringify({ error: error.message }), { status: 400, headers: corsHeaders })

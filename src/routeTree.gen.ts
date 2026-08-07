@@ -25,6 +25,7 @@ import { Route as AppEmpresaResultadosRouteImport } from './routes/app.empresa.r
 import { Route as AppEmpresaCitasRouteImport } from './routes/app.empresa.citas'
 import { Route as AppAdminRegistrarRouteImport } from './routes/app.admin.registrar'
 import { Route as AppAdminMenusRouteImport } from './routes/app.admin.menus'
+import { Route as AppAdminCatalogosRouteImport } from './routes/app.admin.catalogos'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -106,12 +107,18 @@ const AppAdminMenusRoute = AppAdminMenusRouteImport.update({
   path: '/admin/menus',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAdminCatalogosRoute = AppAdminCatalogosRouteImport.update({
+  id: '/admin/catalogos',
+  path: '/admin/catalogos',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
   '/auth': typeof AuthRoute
   '/app/perfil': typeof AppPerfilRoute
+  '/app/admin/catalogos': typeof AppAdminCatalogosRoute
   '/app/admin/menus': typeof AppAdminMenusRoute
   '/app/admin/registrar': typeof AppAdminRegistrarRoute
   '/app/empresa/citas': typeof AppEmpresaCitasRoute
@@ -130,6 +137,7 @@ export interface FileRoutesByTo {
   '/app': typeof AppRouteWithChildren
   '/auth': typeof AuthRoute
   '/app/perfil': typeof AppPerfilRoute
+  '/app/admin/catalogos': typeof AppAdminCatalogosRoute
   '/app/admin/menus': typeof AppAdminMenusRoute
   '/app/admin/registrar': typeof AppAdminRegistrarRoute
   '/app/empresa/citas': typeof AppEmpresaCitasRoute
@@ -149,6 +157,7 @@ export interface FileRoutesById {
   '/app': typeof AppRouteWithChildren
   '/auth': typeof AuthRoute
   '/app/perfil': typeof AppPerfilRoute
+  '/app/admin/catalogos': typeof AppAdminCatalogosRoute
   '/app/admin/menus': typeof AppAdminMenusRoute
   '/app/admin/registrar': typeof AppAdminRegistrarRoute
   '/app/empresa/citas': typeof AppEmpresaCitasRoute
@@ -169,6 +178,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/auth'
     | '/app/perfil'
+    | '/app/admin/catalogos'
     | '/app/admin/menus'
     | '/app/admin/registrar'
     | '/app/empresa/citas'
@@ -187,6 +197,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/auth'
     | '/app/perfil'
+    | '/app/admin/catalogos'
     | '/app/admin/menus'
     | '/app/admin/registrar'
     | '/app/empresa/citas'
@@ -205,6 +216,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/auth'
     | '/app/perfil'
+    | '/app/admin/catalogos'
     | '/app/admin/menus'
     | '/app/admin/registrar'
     | '/app/empresa/citas'
@@ -339,11 +351,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminMenusRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/admin/catalogos': {
+      id: '/app/admin/catalogos'
+      path: '/admin/catalogos'
+      fullPath: '/app/admin/catalogos'
+      preLoaderRoute: typeof AppAdminCatalogosRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
 interface AppRouteChildren {
   AppPerfilRoute: typeof AppPerfilRoute
+  AppAdminCatalogosRoute: typeof AppAdminCatalogosRoute
   AppAdminMenusRoute: typeof AppAdminMenusRoute
   AppAdminRegistrarRoute: typeof AppAdminRegistrarRoute
   AppEmpresaCitasRoute: typeof AppEmpresaCitasRoute
@@ -360,6 +380,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppPerfilRoute: AppPerfilRoute,
+  AppAdminCatalogosRoute: AppAdminCatalogosRoute,
   AppAdminMenusRoute: AppAdminMenusRoute,
   AppAdminRegistrarRoute: AppAdminRegistrarRoute,
   AppEmpresaCitasRoute: AppEmpresaCitasRoute,
@@ -384,3 +405,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

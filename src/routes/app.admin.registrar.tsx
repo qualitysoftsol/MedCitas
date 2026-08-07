@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AddressInput } from "@/components/AddressInput";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/app/admin/registrar")({
@@ -26,6 +27,8 @@ function AdminRegistrar() {
   const [cedula, setCedula] = useState("");
   const [depto, setDepto] = useState("");
   const [ciudad, setCiudad] = useState("");
+  const [direccion, setDireccion] = useState("");
+  const [resolvedLoc, setResolvedLoc] = useState<{ lat: number; lng: number } | null>(null);
   const [selectedServicios, setSelectedServicios] = useState<string[]>([]);
 
   const { data: servicios = [] } = useServicios();
@@ -58,8 +61,9 @@ function AdminRegistrar() {
         ...(role === "ips" ? {
           departamento: depto,
           ciudad,
-          lat: c?.lat,
-          lng: c?.lng,
+          direccion: direccion.trim() || undefined,
+          lat: resolvedLoc?.lat ?? c?.lat,
+          lng: resolvedLoc?.lng ?? c?.lng,
           servicios: selectedServicios,
         } : {}),
       }),
@@ -71,7 +75,7 @@ function AdminRegistrar() {
     const label = role === "ips" ? "IPS" : role === "empresa" ? "Empresa" : "Particular";
     toast.success(`${label} creada`);
     setEmail(""); setPassword(""); setNombre(""); setTelefono(""); setNit(""); setCedula("");
-    setDepto(""); setCiudad(""); setSelectedServicios([]);
+    setDepto(""); setCiudad(""); setDireccion(""); setResolvedLoc(null); setSelectedServicios([]);
   };
 
   const titulo = role === "ips" ? "IPS" : role === "empresa" ? "Empresa" : "Particular";
@@ -122,6 +126,21 @@ function AdminRegistrar() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+            <div>
+              <Label>Dirección física</Label>
+              <AddressInput
+                value={direccion}
+                city={ciudad || undefined}
+                onChange={(v) => { setDireccion(v); setResolvedLoc(null); }}
+                onResolved={(loc, formatted) => { setDireccion(formatted); setResolvedLoc(loc); }}
+                placeholder="Cra 49 #91-25, Barrios Unidos"
+              />
+              {resolvedLoc ? (
+                <p className="text-xs text-green-600 mt-1">Ubicación geocodificada correctamente.</p>
+              ) : (
+                <p className="text-xs text-muted-foreground mt-1">Escribe y selecciona una sugerencia para registrar la ubicación exacta en el mapa.</p>
+              )}
             </div>
             <div>
               <Label>Servicios</Label>

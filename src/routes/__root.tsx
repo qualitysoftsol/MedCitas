@@ -7,9 +7,10 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { type ReactNode } from "react";
-
+import WhatsAppButton from '../components/WhatsAppButton'
 import appCss from "../styles.css?url";
 import { StoreProvider } from "@/lib/store";
+import { AuthProvider } from "@/lib/auth-context";
 import { Toaster } from "@/components/ui/sonner";
 
 function NotFoundComponent() {
@@ -81,10 +82,13 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   return (
     <QueryClientProvider client={queryClient}>
-      <StoreProvider>
-        <Outlet />
-        <Toaster richColors position="top-center" />
-      </StoreProvider>
+      <AuthProvider>
+        <StoreProvider>
+          <Outlet />
+          <Toaster richColors position="top-center" />
+          <WhatsAppButton phoneNumber="573203744639" />
+        </StoreProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

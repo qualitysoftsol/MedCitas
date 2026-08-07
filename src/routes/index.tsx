@@ -1,14 +1,16 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
-import { useStore } from "@/lib/store";
+import { useAuth } from "@/lib/auth-context";
 
 export const Route = createFileRoute("/")({
   component: Index,
 });
 
 function Index() {
-  const { currentUser } = useStore();
-  if (!currentUser) return <Navigate to="/auth" />;
-  if (currentUser.role === "admin") return <Navigate to="/app/admin" />;
-  if (currentUser.role === "ips") return <Navigate to="/app/ips/calendario" />;
+  const { profile, loading } = useAuth();
+  if (loading) return null;
+  if (!profile) return <Navigate to="/auth" />;
+  if (profile.role === "admin") return <Navigate to="/app/admin" />;
+  if (profile.role === "ips") return <Navigate to="/app/ips/calendario" />;
+  if (profile.role === "particular") return <Navigate to="/app/particular/solicitar" />;
   return <Navigate to="/app/empresa/solicitar" />;
 }
