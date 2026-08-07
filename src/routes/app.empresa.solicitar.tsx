@@ -43,6 +43,7 @@ function EmpresaSolicitar() {
   const [modoSolicitud, setModoSolicitud] = useState<'individual' | 'masivo'>('individual');
   const [archivoEmpleados, setArchivoEmpleados] = useState<{ nombre: string; cedula: string }[]>([]);
   const [archivoError, setArchivoError] = useState<string | null>(null);
+  const [fileInputKey, setFileInputKey] = useState(0);
 
   const bookAppointment = useBookAppointment();
   const bookAppointmentsBatch = useBookAppointmentsBatch();
@@ -220,6 +221,7 @@ function EmpresaSolicitar() {
         toast.success(`${citas.length} cita(s) agendada(s)`);
         setArchivoEmpleados([]);
         setArchivoError(null);
+        setFileInputKey((k) => k + 1);
         setSelectedIps(null);
         setShowDetail(false);
       },
@@ -273,7 +275,7 @@ function EmpresaSolicitar() {
                   <span>Haz clic para cargar el archivo</span>
                   <span className="text-xs">Formato: Nombre;Cedula — un empleado por línea</span>
                 </div>
-                <input type="file" accept=".txt" className="hidden" onChange={handleArchivoChange} />
+                <input key={fileInputKey} type="file" accept=".txt" className="hidden" onChange={handleArchivoChange} />
               </label>
               {archivoError && (
                 <p className="text-xs text-destructive">{archivoError}</p>
