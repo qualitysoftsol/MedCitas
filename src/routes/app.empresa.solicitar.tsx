@@ -13,11 +13,11 @@ import { Badge } from "@/components/ui/badge";
 import { IpsMap } from "@/components/IpsMap";
 import { AddressInput } from "@/components/AddressInput";
 import { toast } from "sonner";
-import { MapPin, Stethoscope } from "lucide-react";
+import { MapPin, Stethoscope, Upload } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { useAvailableSlots } from "@/lib/hooks/useSlots";
-import { useBookAppointment } from "@/lib/hooks/useAppointments";
+import { useBookAppointment, useBookAppointmentsBatch } from "@/lib/hooks/useAppointments";
 import { useClasificaciones, useTiposExamen, useServicios, derivarClasificaciones } from "@/lib/hooks/useCatalogos";
 import type { Profile, IpsFoto } from "@/lib/database.types";
 import { IpsDetailPanel } from "@/components/IpsDetailPanel";
@@ -40,8 +40,12 @@ function EmpresaSolicitar() {
   const [selectedIps, setSelectedIps] = useState<string | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [showDetail, setShowDetail] = useState(false);
+  const [modoSolicitud, setModoSolicitud] = useState<'individual' | 'masivo'>('individual');
+  const [archivoEmpleados, setArchivoEmpleados] = useState<{ nombre: string; cedula: string }[]>([]);
+  const [archivoError, setArchivoError] = useState<string | null>(null);
 
   const bookAppointment = useBookAppointment();
+  const bookAppointmentsBatch = useBookAppointmentsBatch();
 
   const { data: clasificaciones = [] } = useClasificaciones();
   const { data: tiposExamen = [] } = useTiposExamen();
@@ -155,7 +159,28 @@ function EmpresaSolicitar() {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <Card>
-        <CardHeader><CardTitle>Datos del empleado</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>Datos del empleado</CardTitle>
+          <div className="flex gap-2 mt-2">
+            <Button
+              type="button"
+              variant={modoSolicitud === 'individual' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => { setModoSolicitud('individual'); setArchivoEmpleados([]); setArchivoError(null); }}
+            >
+              Cita individual
+            </Button>
+            <Button
+              type="button"
+              variant={modoSolicitud === 'masivo' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => { setModoSolicitud('masivo'); setEmpleadoNombre(''); setEmpleadoCedula(''); setSelectedSlot(null); }}
+            >
+              <Upload className="w-3.5 h-3.5 mr-1" />
+              Citas masivas
+            </Button>
+          </div>
+        </CardHeader>
         <CardContent className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
