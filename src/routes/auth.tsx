@@ -1,6 +1,6 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Navigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { useStore, type Role, DEPARTAMENTOS } from "@/lib/store";
+import { useAuth, DEPARTAMENTOS } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,24 +14,24 @@ export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
       { title: "Ingreso — MedCitas" },
-      { name: "description", content: "Inicia sesión o regístrate como IPS o Empresa en MedCitas." },
+      { name: "description", content: "Inicia sesión o regístrate en MedCitas." },
     ],
   }),
   component: AuthPage,
 });
 
 function AuthPage() {
-  const { login, register, currentUser } = useStore();
+  const { login, register, profile } = useAuth();
   const navigate = useNavigate();
   const [tab, setTab] = useState("login");
 
   // login
-  const [lUser, setLUser] = useState("");
+  const [lEmail, setLEmail] = useState("");
   const [lPass, setLPass] = useState("");
 
   // register
-  const [role, setRole] = useState<Role>("empresa");
-  const [rUser, setRUser] = useState("");
+  const [role, setRole] = useState<"empresa" | "ips" | "particular">("empresa");
+  const [rEmail, setREmail] = useState("");
   const [rPass, setRPass] = useState("");
   const [nombre, setNombre] = useState("");
   const [telefono, setTelefono] = useState("");
@@ -39,47 +39,46 @@ function AuthPage() {
   const [cedula, setCedula] = useState("");
   const [depto, setDepto] = useState("");
   const [ciudad, setCiudad] = useState("");
-  const [deptosMed, setDeptosMed] = useState("Medicina General, Optometría");
+  const [serviciosStr, setServiciosStr] = useState("Medicina General, Optometría");
 
-  if (currentUser) {
-    if (currentUser.role === "admin") return <div />;
-  }
+  if (profile) return <Navigate to="/" />;
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const u = login(lUser.trim(), lPass);
-    if (!u) return toast.error("Credenciales inválidas");
-    toast.success(`Bienvenido ${u.profile.nombre}`);
-    navigate({ to: "/" });
+    try {
+      await login(lEmail.trim(), lPass);
+      navigate({ to: "/" });
+    } catch (err: any) {
+      toast.error(err.message ?? "Credenciales inválidas");
+    }
   };
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!rUser.trim() || !rPass || !nombre.trim())
-      return toast.error("Completa los campos requeridos");
-    if (role === "ips" && (!depto || !ciudad))
-      return toast.error("La IPS debe seleccionar departamento y ciudad");
+    if (!rEmail.trim() || !rPass || !nombre.trim()) return toast.error("Completa los campos requeridos");
+    if (role === "ips" && (!depto || !ciudad)) return toast.error("La IPS debe seleccionar departamento y ciudad");
     const ciudadObj = DEPARTAMENTOS.find((d) => d.nombre === depto)?.ciudades.find((c) => c.nombre === ciudad);
-    const res = register({
-      usuario: rUser.trim(),
-      password: rPass,
-      role,
-      profile: { nombre: nombre.trim(), telefono },
-      ...(role === "empresa" ? { nit } : {}),
-      ...(role === "particular" ? { cedula } : {}),
-      ...(role === "ips"
-        ? {
-            departamento: depto,
-            ciudad,
-            lat: ciudadObj?.lat,
-            lng: ciudadObj?.lng,
-            departamentos: deptosMed.split(",").map((s) => s.trim()).filter(Boolean),
-          }
-        : {}),
-    });
-    if (!res.ok) return toast.error(res.error ?? "Error al registrar");
-    toast.success("Cuenta creada");
-    navigate({ to: "/" });
+    try {
+      await register({
+        email: rEmail.trim(),
+        password: rPass,
+        role,
+        nombre: nombre.trim(),
+        telefono: telefono || undefined,
+        ...(role === "empresa" ? { nit } : {}),
+        ...(role === "particular" ? { cedula } : {}),
+        ...(role === "ips" ? {
+          departamento: depto,
+          ciudad,
+          lat: ciudadObj?.lat,
+          lng: ciudadObj?.lng,
+          servicios: serviciosStr.split(",").map((s) => s.trim()).filter(Boolean),
+        } : {}),
+      });
+      toast.success("Cuenta creada. Revisa tu email para confirmar.");
+    } catch (err: any) {
+      toast.error(err.message ?? "Error al registrar");
+    }
   };
 
   const ciudades = DEPARTAMENTOS.find((d) => d.nombre === depto)?.ciudades ?? [];
@@ -95,9 +94,7 @@ function AuthPage() {
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader>
           <CardTitle>Acceso a la plataforma</CardTitle>
-          <CardDescription>
-            Ingresa o crea una cuenta como IPS o Empresa. Admin de prueba: <b>admin / admin123</b>
-          </CardDescription>
+          <CardDescription>Ingresa o crea una cuenta como IPS, Empresa o Particular.</CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs value={tab} onValueChange={setTab}>
@@ -108,24 +105,21 @@ function AuthPage() {
             <TabsContent value="login">
               <form onSubmit={handleLogin} className="space-y-3 mt-4">
                 <div>
-                  <Label>Usuario</Label>
-                  <Input value={lUser} onChange={(e) => setLUser(e.target.value)} autoComplete="username" />
+                  <Label>Correo electrónico</Label>
+                  <Input type="email" value={lEmail} onChange={(e) => setLEmail(e.target.value)} autoComplete="email" />
                 </div>
                 <div>
                   <Label>Contraseña</Label>
                   <Input type="password" value={lPass} onChange={(e) => setLPass(e.target.value)} autoComplete="current-password" />
                 </div>
                 <Button type="submit" className="w-full">Entrar</Button>
-                <p className="text-xs text-muted-foreground text-center">
-                  Prueba: <b>ips_bogota / ips123</b>, <b>empresa_demo / emp123</b> o <b>particular_demo / part123</b>
-                </p>
               </form>
             </TabsContent>
             <TabsContent value="register">
               <form onSubmit={handleRegister} className="space-y-3 mt-4">
                 <div>
                   <Label>Tipo de cuenta</Label>
-                  <Select value={role} onValueChange={(v) => setRole(v as Role)}>
+                  <Select value={role} onValueChange={(v) => setRole(v as typeof role)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="empresa">Empresa</SelectItem>
@@ -134,37 +128,24 @@ function AuthPage() {
                     </SelectContent>
                   </Select>
                 </div>
+                <div>
+                  <Label>Correo electrónico</Label>
+                  <Input type="email" value={rEmail} onChange={(e) => setREmail(e.target.value)} />
+                </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label>Usuario</Label>
-                    <Input value={rUser} onChange={(e) => setRUser(e.target.value)} />
-                  </div>
                   <div>
                     <Label>Contraseña</Label>
                     <Input type="password" value={rPass} onChange={(e) => setRPass(e.target.value)} />
                   </div>
-                </div>
-                <div>
-                  <Label>{role === "ips" ? "Nombre de la IPS" : role === "particular" ? "Nombre completo" : "Razón social"}</Label>
-                  <Input value={nombre} onChange={(e) => setNombre(e.target.value)} />
+                  <div>
+                    <Label>{role === "ips" ? "Nombre IPS" : role === "particular" ? "Nombre completo" : "Razón social"}</Label>
+                    <Input value={nombre} onChange={(e) => setNombre(e.target.value)} />
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label>Teléfono</Label>
-                    <Input value={telefono} onChange={(e) => setTelefono(e.target.value)} />
-                  </div>
-                  {role === "empresa" && (
-                    <div>
-                      <Label>NIT</Label>
-                      <Input value={nit} onChange={(e) => setNit(e.target.value)} />
-                    </div>
-                  )}
-                  {role === "particular" && (
-                    <div>
-                      <Label>Cédula</Label>
-                      <Input value={cedula} onChange={(e) => setCedula(e.target.value)} />
-                    </div>
-                  )}
+                  <div><Label>Teléfono</Label><Input value={telefono} onChange={(e) => setTelefono(e.target.value)} /></div>
+                  {role === "empresa" && <div><Label>NIT</Label><Input value={nit} onChange={(e) => setNit(e.target.value)} /></div>}
+                  {role === "particular" && <div><Label>Cédula</Label><Input value={cedula} onChange={(e) => setCedula(e.target.value)} /></div>}
                 </div>
                 {role === "ips" && (
                   <>
@@ -174,9 +155,7 @@ function AuthPage() {
                         <Select value={depto} onValueChange={(v) => { setDepto(v); setCiudad(""); }}>
                           <SelectTrigger><SelectValue placeholder="Seleccione" /></SelectTrigger>
                           <SelectContent>
-                            {DEPARTAMENTOS.map((d) => (
-                              <SelectItem key={d.nombre} value={d.nombre}>{d.nombre}</SelectItem>
-                            ))}
+                            {DEPARTAMENTOS.map((d) => <SelectItem key={d.nombre} value={d.nombre}>{d.nombre}</SelectItem>)}
                           </SelectContent>
                         </Select>
                       </div>
@@ -185,16 +164,14 @@ function AuthPage() {
                         <Select value={ciudad} onValueChange={setCiudad} disabled={!depto}>
                           <SelectTrigger><SelectValue placeholder="Seleccione" /></SelectTrigger>
                           <SelectContent>
-                            {ciudades.map((c) => (
-                              <SelectItem key={c.nombre} value={c.nombre}>{c.nombre}</SelectItem>
-                            ))}
+                            {ciudades.map((c) => <SelectItem key={c.nombre} value={c.nombre}>{c.nombre}</SelectItem>)}
                           </SelectContent>
                         </Select>
                       </div>
                     </div>
                     <div>
-                      <Label>Departamentos médicos (separados por coma)</Label>
-                      <Input value={deptosMed} onChange={(e) => setDeptosMed(e.target.value)} />
+                      <Label>Servicios (separados por coma)</Label>
+                      <Input value={serviciosStr} onChange={(e) => setServiciosStr(e.target.value)} />
                     </div>
                   </>
                 )}
