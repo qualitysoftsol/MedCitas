@@ -28,13 +28,11 @@ function IpsResultados() {
   const [diagnostico, setDiagnostico] = useState("");
   const [apto, setApto] = useState<"apto" | "apto_restricciones" | "no_apto">("apto");
   const [obs, setObs] = useState("");
-  const [pdfFile, setPdfFile] = useState<File | null>(null);
 
   const submit = () => {
     const appt = appointments.find((a) => a.id === apptId);
     if (!appt) return toast.error("Selecciona una cita");
     if (!diagnostico.trim()) return toast.error("Diagnóstico requerido");
-    if (!pdfFile) return toast.error("Adjunta el PDF del resultado");
     addResultado.mutate({
       appointment_id: appt.id,
       solicitante_id: appt.solicitante_id,
@@ -45,11 +43,10 @@ function IpsResultados() {
       diagnostico,
       apto,
       observaciones: obs,
-      pdfFile,
     }, {
       onSuccess: () => {
         toast.success("Resultado cargado");
-        setOpen(false); setApptId(""); setDiagnostico(""); setObs(""); setApto("apto"); setPdfFile(null);
+        setOpen(false); setApptId(""); setDiagnostico(""); setObs(""); setApto("apto");
       },
       onError: (err: any) => toast.error(err.message),
     });
@@ -97,15 +94,6 @@ function IpsResultados() {
                   <div>
                     <Label>Observaciones</Label>
                     <Textarea value={obs} onChange={(e) => setObs(e.target.value)} />
-                  </div>
-                  <div>
-                    <Label>PDF del resultado <span className="text-destructive">*</span></Label>
-                    <input
-                      type="file"
-                      accept="application/pdf"
-                      className="mt-1 block w-full text-sm"
-                      onChange={(e) => setPdfFile(e.target.files?.[0] ?? null)}
-                    />
                   </div>
                 </div>
                 <DialogFooter><Button onClick={submit}>Guardar</Button></DialogFooter>
