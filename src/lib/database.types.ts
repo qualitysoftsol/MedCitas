@@ -15,6 +15,12 @@ export type Database = {
           ciudad: string | null
           lat: number | null
           lng: number | null
+          rut_url: string | null
+          camara_comercio_url: string | null
+          contacto_rrhh_telefono: string | null
+          contacto_rrhh_email: string | null
+          contacto_contabilidad_telefono: string | null
+          contacto_contabilidad_email: string | null
           servicios: string[] | null
           created_at: string
         }
