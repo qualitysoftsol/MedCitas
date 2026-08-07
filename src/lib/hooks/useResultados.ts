@@ -21,7 +21,7 @@ export function useResultados(userId: string | undefined, role: string | undefin
   })
 }
 
-type NewResultado = Omit<Resultado, 'id' | 'created_at'>
+type NewResultado = Omit<Resultado, 'id' | 'created_at' | 'pdf_url'> & { pdf_url?: string }
 
 export function useAddResultado() {
   const qc = useQueryClient()

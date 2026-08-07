@@ -83,9 +83,10 @@ export type Database = {
           diagnostico: string
           apto: 'apto' | 'apto_restricciones' | 'no_apto'
           observaciones: string
+          pdf_url: string
           created_at: string
         }
-        Insert: Omit<Database['public']['Tables']['resultados']['Row'], 'id' | 'created_at'>
+        Insert: Omit<Database['public']['Tables']['resultados']['Row'], 'id' | 'created_at' | 'pdf_url'> & { pdf_url?: string }
         Update: Partial<Database['public']['Tables']['resultados']['Row']>
       }
       notifications: {
