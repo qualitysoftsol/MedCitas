@@ -508,7 +508,7 @@ function EmpresaSolicitar() {
                           </table>
                         </div>
                         <div className="mt-4 flex gap-2 justify-end">
-                          <Button variant="outline" onClick={() => setSelectedIps(null)}>Cancelar</Button>
+                          <Button variant="outline" onClick={() => { setSelectedIps(null); setShowDetail(false); }}>Cancelar</Button>
                           <Button
                             onClick={submitMasivo}
                             disabled={conSlot === 0 || bookAppointmentsBatch.isPending}
