@@ -194,6 +194,39 @@ function EmpresaSolicitar() {
     });
   };
 
+  const submitMasivo = () => {
+    const pares = archivoEmpleados.map((emp, i) => ({
+      empleado: emp,
+      slot: slotsIps[i] ?? null,
+    }));
+    const citasValidas = pares.filter((p) => p.slot !== null);
+    if (citasValidas.length === 0) return toast.error('No hay horarios disponibles para esta IPS');
+
+    const citas = citasValidas.map(({ empleado, slot }) => ({
+      slot_id: slot!.id,
+      ips_id: slot!.ips_id,
+      solicitante_id: profile!.id,
+      empleado_nombre: empleado.nombre,
+      empleado_cedula: empleado.cedula,
+      tipo_examen: tipoExamen,
+      fecha: slot!.fecha,
+      hora: slot!.hora,
+      ciudad: slot!.ciudad,
+      servicio: slot!.servicio,
+    }));
+
+    bookAppointmentsBatch.mutate(citas, {
+      onSuccess: () => {
+        toast.success(`${citas.length} cita(s) agendada(s)`);
+        setArchivoEmpleados([]);
+        setArchivoError(null);
+        setSelectedIps(null);
+        setShowDetail(false);
+      },
+      onError: (err: any) => toast.error(err.message),
+    });
+  };
+
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <Card>
@@ -400,30 +433,95 @@ function EmpresaSolicitar() {
             <CardTitle>Horarios disponibles — {ipsEnCiudad.find(u=>u.id===selectedIps)?.nombre}</CardTitle>
           </CardHeader>
           <CardContent>
-            {slotsIps.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Esta IPS no tiene horarios disponibles.</p>
+            {modoSolicitud === 'individual' ? (
+              <>
+                {slotsIps.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Esta IPS no tiene horarios disponibles.</p>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                    {slotsIps.map((s) => (
+                      <button
+                        key={s.id}
+                        onClick={() => setSelectedSlot(s.id)}
+                        className={`text-left rounded-md border p-2 hover:border-primary transition ${selectedSlot===s.id ? "border-primary bg-accent/50" : ""}`}
+                      >
+                        <div className="text-sm font-medium">{s.fecha}</div>
+                        <div className="text-xs text-muted-foreground">{s.hora} · {s.servicio}</div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div className="mt-4 flex items-center justify-between">
+                  <div className="text-sm text-muted-foreground">
+                    {selectedSlot ? (
+                      <>Horario: <Badge>{slotsIps.find(s=>s.id===selectedSlot)?.fecha} {slotsIps.find(s=>s.id===selectedSlot)?.hora}</Badge></>
+                    ) : "Selecciona un horario"}
+                  </div>
+                  <Button onClick={submit} disabled={!selectedSlot}>Agendar cita</Button>
+                </div>
+              </>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                {slotsIps.map((s) => (
-                  <button
-                    key={s.id}
-                    onClick={() => setSelectedSlot(s.id)}
-                    className={`text-left rounded-md border p-2 hover:border-primary transition ${selectedSlot===s.id ? "border-primary bg-accent/50" : ""}`}
-                  >
-                    <div className="text-sm font-medium">{s.fecha}</div>
-                    <div className="text-xs text-muted-foreground">{s.hora} · {s.servicio}</div>
-                  </button>
-                ))}
-              </div>
+              (() => {
+                const pares = archivoEmpleados.map((emp, i) => ({
+                  empleado: emp,
+                  slot: slotsIps[i] ?? null,
+                }));
+                const conSlot = pares.filter((p) => p.slot !== null).length;
+                const sinSlot = pares.length - conSlot;
+                return (
+                  <>
+                    {archivoEmpleados.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">Carga un archivo de empleados para ver los horarios asignados.</p>
+                    ) : slotsIps.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">Esta IPS no tiene horarios disponibles.</p>
+                    ) : (
+                      <>
+                        {sinSlot > 0 && (
+                          <p className="text-sm text-amber-600 mb-3">
+                            Solo se agendarán <strong>{conSlot}</strong> de <strong>{pares.length}</strong> empleados — no hay suficientes horarios disponibles.
+                          </p>
+                        )}
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b text-left text-muted-foreground">
+                                <th className="py-2 pr-4 font-medium">Empleado</th>
+                                <th className="py-2 pr-4 font-medium">Cédula</th>
+                                <th className="py-2 font-medium">Horario asignado</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y">
+                              {pares.map(({ empleado, slot }, idx) => (
+                                <tr key={idx}>
+                                  <td className="py-2 pr-4">{empleado.nombre}</td>
+                                  <td className="py-2 pr-4 text-muted-foreground">{empleado.cedula}</td>
+                                  <td className="py-2">
+                                    {slot ? (
+                                      <Badge variant="outline">{slot.fecha} {slot.hora}</Badge>
+                                    ) : (
+                                      <span className="text-destructive text-xs">Sin horario disponible</span>
+                                    )}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        <div className="mt-4 flex gap-2 justify-end">
+                          <Button variant="outline" onClick={() => setSelectedIps(null)}>Cancelar</Button>
+                          <Button
+                            onClick={submitMasivo}
+                            disabled={conSlot === 0 || bookAppointmentsBatch.isPending}
+                          >
+                            {bookAppointmentsBatch.isPending ? 'Agendando...' : `Agendar ${conSlot} cita(s)`}
+                          </Button>
+                        </div>
+                      </>
+                    )}
+                  </>
+                );
+              })()
             )}
-            <div className="mt-4 flex items-center justify-between">
-              <div className="text-sm text-muted-foreground">
-                {selectedSlot ? (
-                  <>Horario: <Badge>{slotsIps.find(s=>s.id===selectedSlot)?.fecha} {slotsIps.find(s=>s.id===selectedSlot)?.hora}</Badge></>
-                ) : "Selecciona un horario"}
-              </div>
-              <Button onClick={submit} disabled={!selectedSlot}>Agendar cita</Button>
-            </div>
           </CardContent>
         </Card>
       )}
