@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { IpsFotosSection } from "@/components/IpsFotosSection";
-import { useDepartamentosMedicos, useClasificaciones } from "@/lib/hooks/useCatalogos";
+import { useServicios, useClasificaciones } from "@/lib/hooks/useCatalogos";
 
 export const Route = createFileRoute("/app/perfil")({
   component: Perfil,
@@ -29,10 +29,10 @@ function Perfil() {
   const [email, setEmail] = useState("");
   const [newP, setNewP] = useState("");
   const [confirmP, setConfirmP] = useState("");
-  const [selectedDeptosMed, setSelectedDeptosMed] = useState<string[]>([]);
+  const [selectedServicios, setSelectedServicios] = useState<string[]>([]);
   const [selectedClasificaciones, setSelectedClasificaciones] = useState<string[]>([]);
 
-  const { data: departamentosMedicos = [] } = useDepartamentosMedicos();
+  const { data: servicios = [] } = useServicios();
   const { data: catalogoClasificaciones = [] } = useClasificaciones();
 
   useEffect(() => {
@@ -41,7 +41,7 @@ function Perfil() {
     setTelefono(profile.telefono ?? "");
     setDireccion(profile.direccion ?? "");
     setDescripcion(profile.descripcion ?? "");
-    setSelectedDeptosMed(profile.departamentos_medicos ?? []);
+    setSelectedServicios(profile.servicios ?? []);
     setSelectedClasificaciones(profile.clasificaciones ?? []);
   }, [profile]);
 
@@ -62,7 +62,7 @@ function Perfil() {
       nombre, telefono, direccion, descripcion,
     };
     if (profile.role === 'ips') {
-      patch.departamentos_medicos = selectedDeptosMed;
+      patch.servicios = selectedServicios;
       patch.clasificaciones = selectedClasificaciones;
     }
     updateProfile.mutate(
@@ -99,13 +99,13 @@ function Perfil() {
           {profile.role === 'ips' && (
             <>
               <div>
-                <Label>Departamentos médicos</Label>
+                <Label>Servicios</Label>
                 <div className="mt-1 flex flex-wrap gap-x-4 gap-y-2">
-                  {departamentosMedicos.map((d) => (
+                  {servicios.map((d) => (
                     <label key={d.id} className="flex items-center gap-1.5 text-sm cursor-pointer select-none">
                       <Checkbox
-                        checked={selectedDeptosMed.includes(d.nombre)}
-                        onCheckedChange={() => toggleItem(selectedDeptosMed, setSelectedDeptosMed, d.nombre)}
+                        checked={selectedServicios.includes(d.nombre)}
+                        onCheckedChange={() => toggleItem(selectedServicios, setSelectedServicios, d.nombre)}
                       />
                       {d.nombre}
                     </label>

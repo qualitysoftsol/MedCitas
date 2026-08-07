@@ -4,21 +4,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Trash2, Pencil, Check, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   useClasificaciones, useAddClasificacion, useUpdateClasificacion, useDeleteClasificacion,
-  useDepartamentosMedicos, useAddDepartamentoMedico, useUpdateDepartamentoMedico, useDeleteDepartamentoMedico,
+  useServicios, useAddServicio, useUpdateServicio, useDeleteServicio,
   useTiposExamen, useAddTipoExamen, useUpdateTipoExamen, useDeleteTipoExamen,
 } from "@/lib/hooks/useCatalogos";
-import type { TipoExamen } from "@/lib/database.types";
+import type { Servicio, TipoExamen } from "@/lib/database.types";
 
 export const Route = createFileRoute("/app/admin/catalogos")({
   component: AdminCatalogos,
 });
 
-// ─── Panel genérico para clasificaciones y departamentos ───────────────────────
+// ─── Panel genérico para clasificaciones ───────────────────────────────────────
 
 interface SimplePanelProps {
   items: { id: string; nombre: string }[];
@@ -114,6 +115,113 @@ function SimplePanel({ items, onAdd, onUpdate, onDelete, placeholder }: SimplePa
           </li>
         ))}
         {items.length === 0 && <li className="py-2 text-sm text-muted-foreground">Sin elementos.</li>}
+      </ul>
+    </div>
+  );
+}
+
+// ─── Panel de servicios con dropdown de clasificación ─────────────────────────
+
+function ServiciosPanel() {
+  const { data: servicios = [] } = useServicios();
+  const { data: clasificaciones = [] } = useClasificaciones();
+  const addServicio = useAddServicio();
+  const updateServicio = useUpdateServicio();
+  const deleteServicio = useDeleteServicio();
+
+  const [newName, setNewName] = useState("");
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+
+  const handleAdd = async () => {
+    const name = newName.trim();
+    if (!name) return;
+    try {
+      await addServicio.mutateAsync(name);
+      setNewName("");
+    } catch (e: any) {
+      toast.error(e.message ?? "Error al agregar");
+    }
+  };
+
+  const startEdit = (s: Servicio) => { setEditId(s.id); setEditName(s.nombre); };
+  const cancelEdit = () => setEditId(null);
+
+  const saveEdit = async (s: Servicio) => {
+    try {
+      await updateServicio.mutateAsync({ id: s.id, nombre: editName.trim(), clasificacion_id: s.clasificacion_id });
+      setEditId(null);
+    } catch (e: any) {
+      toast.error(e.message ?? "Error al actualizar");
+    }
+  };
+
+  const handleClasificacionChange = async (s: Servicio, value: string) => {
+    const clasificacion_id = value === "none" ? null : value;
+    try {
+      await updateServicio.mutateAsync({ id: s.id, nombre: s.nombre, clasificacion_id });
+    } catch (e: any) {
+      toast.error(e.message ?? "Error al actualizar");
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteServicio.mutateAsync(id);
+    } catch (e: any) {
+      toast.error(e.message ?? "Error al eliminar");
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-2">
+        <Input
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          placeholder="Nuevo servicio"
+          onKeyDown={(e) => e.key === "Enter" && handleAdd()}
+        />
+        <Button onClick={handleAdd}>Agregar</Button>
+      </div>
+      <ul className="divide-y">
+        {servicios.map((s) => (
+          <li key={s.id} className="flex items-center gap-2 py-2">
+            {editId === s.id ? (
+              <Input
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                className="h-7 text-sm flex-1"
+                onKeyDown={(e) => { if (e.key === "Enter") saveEdit(s); if (e.key === "Escape") cancelEdit(); }}
+                onBlur={() => saveEdit(s)}
+                autoFocus
+              />
+            ) : (
+              <span className="flex-1 text-sm">{s.nombre}</span>
+            )}
+            <Select
+              value={s.clasificacion_id ?? "none"}
+              onValueChange={(v) => handleClasificacionChange(s, v)}
+            >
+              <SelectTrigger className="h-7 w-44 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Sin clasificación</SelectItem>
+                {clasificaciones.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button size="icon" variant="ghost" onClick={() => startEdit(s)} className="h-7 w-7">
+              <Pencil className="w-3 h-3" />
+            </Button>
+            <Button size="icon" variant="ghost" onClick={() => handleDelete(s.id)} className="h-7 w-7 text-destructive hover:text-destructive">
+              <Trash2 className="w-3 h-3" />
+            </Button>
+          </li>
+        ))}
+        {servicios.length === 0 && <li className="py-2 text-sm text-muted-foreground">Sin servicios.</li>}
       </ul>
     </div>
   );
@@ -241,11 +349,6 @@ function AdminCatalogos() {
   const updateC = useUpdateClasificacion();
   const deleteC = useDeleteClasificacion();
 
-  const { data: deptos = [] } = useDepartamentosMedicos();
-  const addD = useAddDepartamentoMedico();
-  const updateD = useUpdateDepartamentoMedico();
-  const deleteD = useDeleteDepartamentoMedico();
-
   return (
     <Card className="max-w-2xl">
       <CardHeader><CardTitle>Catálogos</CardTitle></CardHeader>
@@ -253,7 +356,7 @@ function AdminCatalogos() {
         <Tabs defaultValue="clasificaciones">
           <TabsList className="mb-4">
             <TabsTrigger value="clasificaciones">Clasificaciones IPS</TabsTrigger>
-            <TabsTrigger value="departamentos">Departamentos Médicos</TabsTrigger>
+            <TabsTrigger value="servicios">Servicios</TabsTrigger>
             <TabsTrigger value="tipos_examen">Tipos de Examen</TabsTrigger>
           </TabsList>
 
@@ -267,14 +370,8 @@ function AdminCatalogos() {
             />
           </TabsContent>
 
-          <TabsContent value="departamentos">
-            <SimplePanel
-              items={deptos}
-              onAdd={(n) => addD.mutateAsync(n)}
-              onUpdate={(a) => updateD.mutateAsync(a)}
-              onDelete={(id) => deleteD.mutateAsync(id)}
-              placeholder="Nuevo departamento médico"
-            />
+          <TabsContent value="servicios">
+            <ServiciosPanel />
           </TabsContent>
 
           <TabsContent value="tipos_examen">

@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useAuth, DEPARTAMENTOS } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
-import { useDepartamentosMedicos, useClasificaciones } from "@/lib/hooks/useCatalogos";
+import { useServicios, useClasificaciones } from "@/lib/hooks/useCatalogos";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,10 +26,10 @@ function AdminRegistrar() {
   const [cedula, setCedula] = useState("");
   const [depto, setDepto] = useState("");
   const [ciudad, setCiudad] = useState("");
-  const [selectedDeptosMed, setSelectedDeptosMed] = useState<string[]>([]);
+  const [selectedServicios, setSelectedServicios] = useState<string[]>([]);
   const [selectedClasificaciones, setSelectedClasificaciones] = useState<string[]>([]);
 
-  const { data: departamentosMedicos = [] } = useDepartamentosMedicos();
+  const { data: servicios = [] } = useServicios();
   const { data: clasificaciones = [] } = useClasificaciones();
 
   const ciudades = DEPARTAMENTOS.find((d) => d.nombre === depto)?.ciudades ?? [];
@@ -62,7 +62,7 @@ function AdminRegistrar() {
           ciudad,
           lat: c?.lat,
           lng: c?.lng,
-          departamentos_medicos: selectedDeptosMed,
+          servicios: selectedServicios,
           clasificaciones: selectedClasificaciones,
         } : {}),
       }),
@@ -74,7 +74,7 @@ function AdminRegistrar() {
     const label = role === "ips" ? "IPS" : role === "empresa" ? "Empresa" : "Particular";
     toast.success(`${label} creada`);
     setEmail(""); setPassword(""); setNombre(""); setTelefono(""); setNit(""); setCedula("");
-    setDepto(""); setCiudad(""); setSelectedDeptosMed([]); setSelectedClasificaciones([]);
+    setDepto(""); setCiudad(""); setSelectedServicios([]); setSelectedClasificaciones([]);
   };
 
   const titulo = role === "ips" ? "IPS" : role === "empresa" ? "Empresa" : "Particular";
@@ -127,13 +127,13 @@ function AdminRegistrar() {
               </div>
             </div>
             <div>
-              <Label>Departamentos médicos</Label>
+              <Label>Servicios</Label>
               <div className="mt-1 flex flex-wrap gap-x-4 gap-y-2">
-                {departamentosMedicos.map((d) => (
+                {servicios.map((d) => (
                   <label key={d.id} className="flex items-center gap-1.5 text-sm cursor-pointer select-none">
                     <Checkbox
-                      checked={selectedDeptosMed.includes(d.nombre)}
-                      onCheckedChange={() => toggleItem(selectedDeptosMed, setSelectedDeptosMed, d.nombre)}
+                      checked={selectedServicios.includes(d.nombre)}
+                      onCheckedChange={() => toggleItem(selectedServicios, setSelectedServicios, d.nombre)}
                     />
                     {d.nombre}
                   </label>
