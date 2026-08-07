@@ -41,7 +41,7 @@ serve(async (req) => {
     fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${Deno.env.get('RESEND_API_KEY')}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: 'MedCitas <notificaciones@tudominio.co>', to, subject, html }),
+      body: JSON.stringify({ from: 'MedCitas <onboarding@resend.dev>', to, subject, html }),
     })
   ))
 
