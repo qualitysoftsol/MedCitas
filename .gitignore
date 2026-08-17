@@ -35,3 +35,13 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local tooling
+.claude/
+
+# Build/dev output captures
+build-output.txt
+dev-output.txt
+
+# Supabase CLI local state
+supabase/.temp/

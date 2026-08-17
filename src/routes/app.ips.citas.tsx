@@ -18,7 +18,7 @@ function IpsCitas() {
 
   return (
     <Card>
-      <CardHeader><CardTitle>Citas agendadas por empresas</CardTitle></CardHeader>
+      <CardHeader><CardTitle>Citas agendadas</CardTitle></CardHeader>
       <CardContent>
         {mine.length === 0 ? (
           <p className="text-sm text-muted-foreground">Aún no hay citas agendadas.</p>
