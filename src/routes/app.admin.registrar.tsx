@@ -96,14 +96,14 @@ function AdminRegistrar() {
           </Select>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <div><Label>Correo electrónico</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-          <div><Label>Contraseña</Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} /></div>
+          <div><Label>Correo electrónico</Label><Input type="text" inputMode="email" name="nuevo-usuario-email" autoComplete="off" data-1p-ignore data-lpignore="true" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+          <div><Label>Contraseña</Label><Input type="password" name="nuevo-usuario-password" autoComplete="new-password" data-1p-ignore data-lpignore="true" value={password} onChange={(e) => setPassword(e.target.value)} /></div>
         </div>
-        <div><Label>{role === "ips" ? "Nombre IPS" : role === "particular" ? "Nombre completo" : "Razón social"}</Label><Input value={nombre} onChange={(e) => setNombre(e.target.value)} /></div>
+        <div><Label>{role === "ips" ? "Nombre IPS" : role === "particular" ? "Nombre completo" : "Razón social"}</Label><Input value={nombre} onChange={(e) => setNombre(e.target.value)} autoComplete="off" /></div>
         <div className="grid grid-cols-2 gap-3">
-          <div><Label>Teléfono</Label><Input value={telefono} onChange={(e) => setTelefono(e.target.value)} /></div>
-          {role === "empresa" && <div><Label>NIT</Label><Input value={nit} onChange={(e) => setNit(e.target.value)} /></div>}
-          {role === "particular" && <div><Label>Cédula</Label><Input value={cedula} onChange={(e) => setCedula(e.target.value)} /></div>}
+          <div><Label>Teléfono</Label><Input value={telefono} onChange={(e) => setTelefono(e.target.value)} autoComplete="off" /></div>
+          {role === "empresa" && <div><Label>NIT</Label><Input value={nit} onChange={(e) => setNit(e.target.value)} autoComplete="off" /></div>}
+          {role === "particular" && <div><Label>Cédula</Label><Input value={cedula} onChange={(e) => setCedula(e.target.value)} autoComplete="off" /></div>}
         </div>
         {role === "ips" && (
           <>

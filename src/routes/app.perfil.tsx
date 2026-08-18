@@ -233,9 +233,9 @@ function Perfil() {
       <Card>
         <CardHeader><CardTitle>Datos del perfil</CardTitle></CardHeader>
         <CardContent className="space-y-3">
-          <div><Label>Email</Label><Input value={email} disabled /></div>
-          <div><Label>Nombre / Razón social</Label><Input value={nombre} onChange={(e) => setNombre(e.target.value)} /></div>
-          <div><Label>Teléfono</Label><Input value={telefono} onChange={(e) => setTelefono(e.target.value)} /></div>
+          <div><Label>Email</Label><Input value={email} disabled autoComplete="off" /></div>
+          <div><Label>Nombre / Razón social</Label><Input value={nombre} onChange={(e) => setNombre(e.target.value)} autoComplete="off" /></div>
+          <div><Label>Teléfono</Label><Input value={telefono} onChange={(e) => setTelefono(e.target.value)} autoComplete="off" /></div>
           <div>
             <Label>Dirección</Label>
             {profile.role === 'ips' ? (
@@ -252,7 +252,7 @@ function Perfil() {
                 </p>
               </>
             ) : (
-              <Input value={direccion} onChange={(e) => setDireccion(e.target.value)} />
+              <Input value={direccion} onChange={(e) => setDireccion(e.target.value)} autoComplete="off" />
             )}
           </div>
           <div><Label>Descripción</Label><Textarea value={descripcion} onChange={(e) => setDescripcion(e.target.value)} /></div>
@@ -299,12 +299,19 @@ function Perfil() {
                 <div className="grid grid-cols-2 gap-2 mt-1">
                   <Input
                     placeholder="Teléfono"
+                    name="contacto-rrhh-telefono"
+                    autoComplete="off"
                     value={rrhhTelefono}
                     onChange={(e) => setRrhhTelefono(e.target.value)}
                   />
                   <Input
                     placeholder="Email"
-                    type="email"
+                    type="text"
+                    inputMode="email"
+                    name="contacto-rrhh-email"
+                    autoComplete="off"
+                    data-1p-ignore
+                    data-lpignore="true"
                     value={rrhhEmail}
                     onChange={(e) => setRrhhEmail(e.target.value)}
                   />
@@ -315,12 +322,19 @@ function Perfil() {
                 <div className="grid grid-cols-2 gap-2 mt-1">
                   <Input
                     placeholder="Teléfono"
+                    name="contacto-contabilidad-telefono"
+                    autoComplete="off"
                     value={contabilidadTelefono}
                     onChange={(e) => setContabilidadTelefono(e.target.value)}
                   />
                   <Input
                     placeholder="Email"
-                    type="email"
+                    type="text"
+                    inputMode="email"
+                    name="contacto-contabilidad-email"
+                    autoComplete="off"
+                    data-1p-ignore
+                    data-lpignore="true"
                     value={contabilidadEmail}
                     onChange={(e) => setContabilidadEmail(e.target.value)}
                   />
@@ -336,8 +350,8 @@ function Perfil() {
       <Card>
         <CardHeader><CardTitle>Cambiar contraseña</CardTitle></CardHeader>
         <CardContent className="space-y-3">
-          <div><Label>Nueva contraseña</Label><Input type="password" value={newP} onChange={(e) => setNewP(e.target.value)} /></div>
-          <div><Label>Confirmar nueva</Label><Input type="password" value={confirmP} onChange={(e) => setConfirmP(e.target.value)} /></div>
+          <div><Label>Nueva contraseña</Label><Input type="password" name="nueva-password" autoComplete="new-password" data-1p-ignore data-lpignore="true" value={newP} onChange={(e) => setNewP(e.target.value)} /></div>
+          <div><Label>Confirmar nueva</Label><Input type="password" name="confirmar-password" autoComplete="new-password" data-1p-ignore data-lpignore="true" value={confirmP} onChange={(e) => setConfirmP(e.target.value)} /></div>
           <Button onClick={savePass} disabled={changePassword.isPending} className="w-full">
             {changePassword.isPending ? "Actualizando..." : "Actualizar contraseña"}
           </Button>
