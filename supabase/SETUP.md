@@ -154,3 +154,52 @@ This updates the `handle_new_user` trigger to:
 Open SQL Editor → New query, paste content of `supabase/migrations/008_storage_public.sql`, run it.
 
 This ensures the `ips-fotos` bucket is public and has the correct storage policies so that empresa and particular users can view IPS photos. If you already created the bucket manually via the dashboard without "Public bucket" checked, this migration will fix it.
+
+---
+
+## Step 13: Password recovery ("olvidé mi contraseña")
+
+The recovery email is **not** sent by Supabase's built-in template. It is sent by the
+`reset-password` Edge Function through Resend, so it matches the branding of the other
+MedCitas emails and does not depend on Supabase's default SMTP (which is rate limited to a
+couple of emails per hour and only delivers to project team members).
+
+### 13a. Allow the redirect URL
+
+1. Go to **Supabase Dashboard → Authentication → URL Configuration**
+2. Under **Redirect URLs**, add:
+   - `http://localhost:8080/reset-password` (local development)
+   - `https://<your-production-domain>/reset-password` (once production exists)
+
+> Without this, Supabase silently ignores the redirect and the recovery link lands on the
+> Site URL instead of the password form.
+
+### 13b. Set the Edge Function secrets
+
+Go to **Supabase Dashboard → Edge Functions → Secrets** and confirm these are set:
+
+| Secret | Value | Notes |
+| --- | --- | --- |
+| `RESEND_API_KEY` | Resend API key | already used by `notify-appointment` |
+| `ALLOWED_REDIRECT_ORIGINS` | `http://localhost:8080` | origins allowed to receive the recovery link; add production later, comma-separated |
+| `SITE_URL` | *(leave it alone)* | shared with `notify-appointment`/`notify-resultado`, where it is the "Ver en plataforma" link. Here it is only the fallback used when `ALLOWED_REDIRECT_ORIGINS` is unset, so set that one instead of repointing this |
+| `RESEND_TEST_EMAIL` | your own address | **see the warning below** |
+
+> **While Resend has no verified domain:** the account can only send to the address that owns
+> it. Keep `RESEND_TEST_EMAIL` set so every recovery email is redirected there — otherwise
+> Resend rejects the send and the user never receives anything. Once a domain is verified in
+> Resend, **delete** `RESEND_TEST_EMAIL` and change the `from` address in the function from
+> `onboarding@resend.dev` to an address on that domain.
+
+### 13c. Deploy the function
+
+```
+supabase functions deploy reset-password
+```
+
+Writing the file under `supabase/functions/` does not publish it — without this deploy the
+app calls a function that does not exist and the request fails with a 404.
+
+The function answers identically whether or not the email belongs to a registered account, so
+it cannot be used to discover which addresses exist. Recovery links expire after 1 hour and
+work only once.
