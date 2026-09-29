@@ -14,6 +14,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppPerfilRouteImport } from './routes/app.perfil'
+import { Route as AppParticularIndexRouteImport } from './routes/app.particular.index'
 import { Route as AppAdminIndexRouteImport } from './routes/app.admin.index'
 import { Route as AppParticularSolicitarRouteImport } from './routes/app.particular.solicitar'
 import { Route as AppParticularResultadosRouteImport } from './routes/app.particular.resultados'
@@ -51,6 +52,11 @@ const IndexRoute = IndexRouteImport.update({
 const AppPerfilRoute = AppPerfilRouteImport.update({
   id: '/perfil',
   path: '/perfil',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppParticularIndexRoute = AppParticularIndexRouteImport.update({
+  id: '/particular/',
+  path: '/particular/',
   getParentRoute: () => AppRoute,
 } as any)
 const AppAdminIndexRoute = AppAdminIndexRouteImport.update({
@@ -138,6 +144,7 @@ export interface FileRoutesByFullPath {
   '/app/particular/resultados': typeof AppParticularResultadosRoute
   '/app/particular/solicitar': typeof AppParticularSolicitarRoute
   '/app/admin/': typeof AppAdminIndexRoute
+  '/app/particular/': typeof AppParticularIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -158,6 +165,7 @@ export interface FileRoutesByTo {
   '/app/particular/resultados': typeof AppParticularResultadosRoute
   '/app/particular/solicitar': typeof AppParticularSolicitarRoute
   '/app/admin': typeof AppAdminIndexRoute
+  '/app/particular': typeof AppParticularIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -179,6 +187,7 @@ export interface FileRoutesById {
   '/app/particular/resultados': typeof AppParticularResultadosRoute
   '/app/particular/solicitar': typeof AppParticularSolicitarRoute
   '/app/admin/': typeof AppAdminIndexRoute
+  '/app/particular/': typeof AppParticularIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -201,6 +210,7 @@ export interface FileRouteTypes {
     | '/app/particular/resultados'
     | '/app/particular/solicitar'
     | '/app/admin/'
+    | '/app/particular/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -221,6 +231,7 @@ export interface FileRouteTypes {
     | '/app/particular/resultados'
     | '/app/particular/solicitar'
     | '/app/admin'
+    | '/app/particular'
   id:
     | '__root__'
     | '/'
@@ -241,6 +252,7 @@ export interface FileRouteTypes {
     | '/app/particular/resultados'
     | '/app/particular/solicitar'
     | '/app/admin/'
+    | '/app/particular/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -285,6 +297,13 @@ declare module '@tanstack/react-router' {
       path: '/perfil'
       fullPath: '/app/perfil'
       preLoaderRoute: typeof AppPerfilRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/particular/': {
+      id: '/app/particular/'
+      path: '/particular'
+      fullPath: '/app/particular/'
+      preLoaderRoute: typeof AppParticularIndexRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/admin/': {
@@ -396,6 +415,7 @@ interface AppRouteChildren {
   AppParticularResultadosRoute: typeof AppParticularResultadosRoute
   AppParticularSolicitarRoute: typeof AppParticularSolicitarRoute
   AppAdminIndexRoute: typeof AppAdminIndexRoute
+  AppParticularIndexRoute: typeof AppParticularIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -413,6 +433,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppParticularResultadosRoute: AppParticularResultadosRoute,
   AppParticularSolicitarRoute: AppParticularSolicitarRoute,
   AppAdminIndexRoute: AppAdminIndexRoute,
+  AppParticularIndexRoute: AppParticularIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

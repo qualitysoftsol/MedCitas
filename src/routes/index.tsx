@@ -11,6 +11,6 @@ function Index() {
   if (!profile) return <Navigate to="/auth" />;
   if (profile.role === "admin") return <Navigate to="/app/admin" />;
   if (profile.role === "ips") return <Navigate to="/app/ips/calendario" />;
-  if (profile.role === "particular") return <Navigate to="/app/particular/solicitar" />;
+  if (profile.role === "particular") return <Navigate to="/app/particular" />;
   return <Navigate to="/app/empresa/solicitar" />;
 }
