@@ -25,7 +25,7 @@ export function IpsFotosSection({ ipsId }: { ipsId: string }) {
   };
 
   return (
-    <Card className="md:col-span-2">
+    <Card className="lg:col-span-12">
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle>Fotos de instalaciones ({fotos.length}/{MAX_FOTOS})</CardTitle>
@@ -55,7 +55,8 @@ export function IpsFotosSection({ ipsId }: { ipsId: string }) {
                 )}
                 <button
                   onClick={() => deleteFoto.mutate({ foto, ipsId })}
-                  className="absolute top-1 right-1 bg-background/80 rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                  aria-label={`Eliminar foto ${i + 1}`}
+                  className="absolute top-1 right-1 flex size-7 items-center justify-center rounded-full bg-background/90 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>

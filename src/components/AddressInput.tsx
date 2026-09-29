@@ -9,13 +9,14 @@ export function AddressInput({
   onResolved,
   city,
   placeholder,
+  ...inputProps
 }: {
   value: string;
   onChange: (v: string) => void;
   onResolved: (loc: { lat: number; lng: number }, formatted: string) => void;
   city?: string;
   placeholder?: string;
-}) {
+} & Omit<React.ComponentProps<typeof Input>, "value" | "onChange" | "placeholder">) {
   const [suggestions, setSuggestions] = useState<Array<{ text: string; placeId: string }>>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -77,15 +78,17 @@ export function AddressInput({
   return (
     <div className="relative">
       <Input
+        {...inputProps}
+        autoComplete="off"
         value={value}
         placeholder={placeholder}
         onChange={(e) => { onChange(e.target.value); search(e.target.value); }}
         onFocus={() => suggestions.length > 0 && setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
       />
-      {loading && <Loader2 className="w-4 h-4 animate-spin absolute right-2 top-2.5 text-muted-foreground" />}
+      {loading && <Loader2 className="w-4 h-4 animate-spin absolute right-3 top-3 text-muted-foreground" aria-label="Buscando direcciones" />}
       {open && (
-        <ul className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md overflow-hidden">
+        <ul className="absolute z-50 mt-1 w-full overflow-hidden rounded-lg border bg-popover shadow-md" aria-label="Sugerencias de dirección">
           {suggestions.map((s) => (
             <li key={s.placeId}>
               <button
