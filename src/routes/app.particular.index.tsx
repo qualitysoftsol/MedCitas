@@ -42,8 +42,8 @@ function ParticularInicio() {
   const [detalle, setDetalle] = useState<AppointmentWithNames | null>(null);
   const [cancelar, setCancelar] = useState<AppointmentWithNames | null>(null);
 
-  const citas = citasQ.data ?? [];
-  const resultados = resultadosQ.data ?? [];
+  const citas = useMemo(() => citasQ.data ?? [], [citasQ.data]);
+  const resultados = useMemo(() => resultadosQ.data ?? [], [resultadosQ.data]);
   const proxima = useMemo(() => proximaCita(citas), [citas]);
   const items = useMemo(() => construirResultados(resultados, citas), [resultados, citas]);
   const enProceso = items.filter((i) => i.estado === "procesamiento").length;

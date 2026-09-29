@@ -10,9 +10,10 @@ interface Props {
   ips: Profile;
   distancia: number;
   onConfirm: () => void;
+  confirmLabel?: string;
 }
 
-export function IpsDetailPanel({ ips, distancia, onConfirm }: Props) {
+export function IpsDetailPanel({ ips, distancia, onConfirm, confirmLabel = "Confirmar selección y ver horarios" }: Props) {
   const { data: fotos = [] } = useIpsFotos(ips.id);
   const { data: catalogoServicios = [] } = useServicios();
   const [current, setCurrent] = useState(0);
@@ -26,11 +27,12 @@ export function IpsDetailPanel({ ips, distancia, onConfirm }: Props) {
     <div className="space-y-3">
       {fotos.length > 0 ? (
         <div className="relative rounded-md overflow-hidden border aspect-video">
-          <img src={fotos[current].url} alt={`Foto ${current + 1}`} className="w-full h-full object-cover" />
+          <img src={fotos[current].url} alt={`Instalaciones de ${ips.nombre}, foto ${current + 1} de ${fotos.length}`} className="w-full h-full object-cover" />
           {fotos.length > 1 && (
             <>
               <button
                 onClick={prev}
+                aria-label="Foto anterior"
                 disabled={current === 0}
                 className="absolute left-2 top-1/2 -translate-y-1/2 bg-background/80 rounded-full p-1 disabled:opacity-30"
               >
@@ -38,6 +40,7 @@ export function IpsDetailPanel({ ips, distancia, onConfirm }: Props) {
               </button>
               <button
                 onClick={next}
+                aria-label="Foto siguiente"
                 disabled={current === fotos.length - 1}
                 className="absolute right-2 top-1/2 -translate-y-1/2 bg-background/80 rounded-full p-1 disabled:opacity-30"
               >
@@ -48,6 +51,7 @@ export function IpsDetailPanel({ ips, distancia, onConfirm }: Props) {
                   <button
                     key={i}
                     onClick={() => setCurrent(i)}
+                    aria-label={`Ver foto ${i + 1}`}
                     className={`w-1.5 h-1.5 rounded-full transition-colors ${i === current ? 'bg-white' : 'bg-white/50'}`}
                   />
                 ))}
@@ -63,7 +67,7 @@ export function IpsDetailPanel({ ips, distancia, onConfirm }: Props) {
 
       <div>
         <div className="font-semibold text-base">{ips.nombre}</div>
-        <div className="text-sm text-muted-foreground">{ips.direccion} · {distancia.toFixed(1)} km</div>
+        <div className="text-sm text-muted-foreground">{ips.direccion}{distancia < 999 ? ` · ${distancia.toFixed(1)} km` : ""}</div>
       </div>
 
       {(ips.servicios ?? []).length > 0 && (
@@ -82,7 +86,7 @@ export function IpsDetailPanel({ ips, distancia, onConfirm }: Props) {
         </div>
       )}
 
-      <Button className="w-full" onClick={onConfirm}>Confirmar selección y ver horarios</Button>
+      <Button className="w-full" size="lg" onClick={onConfirm}>{confirmLabel}</Button>
     </div>
   );
 }
