@@ -55,6 +55,22 @@ export function useMarkNotificationsRead() {
   })
 }
 
+export function useMarkNotificationRead() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id }: { id: string; userId: string }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.from('notifications') as any)
+        .update({ read: true })
+        .eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: (_data, { userId }) => {
+      qc.invalidateQueries({ queryKey: ['notifications', userId] })
+    },
+  })
+}
+
 export function useClearNotifications() {
   const qc = useQueryClient()
   return useMutation({

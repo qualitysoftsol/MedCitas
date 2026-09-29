@@ -2,8 +2,16 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { Appointment } from '@/lib/database.types'
 
-type AppointmentWithNames = Appointment & {
-  ips: { nombre: string } | null
+export type AppointmentIps = {
+  nombre: string
+  direccion: string | null
+  telefono: string | null
+  lat: number | null
+  lng: number | null
+}
+
+export type AppointmentWithNames = Appointment & {
+  ips: AppointmentIps | null
   solicitante: { nombre: string } | null
 }
 
@@ -14,7 +22,7 @@ export function useAppointments(userId: string | undefined, role: string | undef
       if (!userId) return []
       let query = supabase
         .from('appointments')
-        .select('*, ips:profiles!ips_id(nombre), solicitante:profiles!solicitante_id(nombre)')
+        .select('*, ips:profiles!ips_id(nombre, direccion, telefono, lat, lng), solicitante:profiles!solicitante_id(nombre)')
         .order('fecha', { ascending: false })
         .order('hora', { ascending: false })
 

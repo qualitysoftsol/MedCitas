@@ -23,12 +23,16 @@ interface RegisterData {
 
 interface AuthCtx {
   profile: Profile | null
+  /** Correo de la sesión (vive en auth.users, no en profiles). */
+  email: string | null
   loading: boolean
   login: (email: string, password: string) => Promise<void>
   logout: () => Promise<void>
   register: (data: RegisterData) => Promise<void>
   requestPasswordReset: (email: string) => Promise<void>
   updatePassword: (password: string) => Promise<void>
+  /** Vuelve a leer el perfil desde Supabase (p. ej. después de editarlo). */
+  refreshProfile: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthCtx | null>(null)
@@ -36,9 +40,11 @@ const AuthContext = createContext<AuthCtx | null>(null)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
+  const [email, setEmail] = useState<string | null>(null)
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setEmail(session?.user?.email ?? null)
       if (session?.user) {
         fetchProfile(session.user.id)
       } else {
@@ -97,13 +103,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw error
   }
 
+  const refreshProfile = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session?.user) await fetchProfile(session.user.id)
+  }
+
   const updatePassword = async (password: string) => {
     const { error } = await supabase.auth.updateUser({ password })
     if (error) throw error
   }
 
   return (
-    <AuthContext.Provider value={{ profile, loading, login, logout, register, requestPasswordReset, updatePassword }}>
+    <AuthContext.Provider value={{ profile, email, loading, login, logout, register, requestPasswordReset, updatePassword, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   )

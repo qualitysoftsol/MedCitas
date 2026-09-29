@@ -2,12 +2,20 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { Resultado } from '@/lib/database.types'
 
+export type ResultadoConDetalle = Resultado & {
+  ips: { nombre: string; direccion: string | null } | null
+  appointment: { servicio: string; tipo_examen: string; hora: string; ciudad: string } | null
+}
+
 export function useResultados(userId: string | undefined, role: string | undefined) {
   return useQuery({
     queryKey: ['resultados', userId],
     queryFn: async () => {
       if (!userId) return []
-      let query = supabase.from('resultados').select('*').order('created_at', { ascending: false })
+      let query = supabase
+        .from('resultados')
+        .select('*, ips:profiles!ips_id(nombre, direccion), appointment:appointments(servicio, tipo_examen, hora, ciudad)')
+        .order('created_at', { ascending: false })
       if (role === 'ips') {
         query = query.eq('ips_id', userId)
       } else {
@@ -15,10 +23,22 @@ export function useResultados(userId: string | undefined, role: string | undefin
       }
       const { data, error } = await query
       if (error) throw error
-      return data as Resultado[]
+      return data as unknown as ResultadoConDetalle[]
     },
     enabled: !!userId,
   })
+}
+
+/**
+ * URL firmada (1 h) del PDF de un resultado, pedida en el momento del clic.
+ * Con `download` el navegador descarga el archivo en vez de abrirlo.
+ */
+export async function getResultadoPdfUrl(path: string, download?: string): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from('resultados-pdfs')
+    .createSignedUrl(path, 3600, download ? { download } : undefined)
+  if (error) throw error
+  return data.signedUrl
 }
 
 type NewResultado = Omit<Resultado, 'id' | 'created_at' | 'pdf_url'> & { pdfFile: File }
