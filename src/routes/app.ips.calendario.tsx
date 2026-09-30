@@ -67,9 +67,13 @@ function IpsCalendario() {
   const conHistorial = useMemo(() => new Set(citas.map((c) => c.slot_id)), [citas]);
 
   const libres = misSlots.filter((s) => !s.taken).length;
+  // Solo se registra disponibilidad desde hoy; los días pasados se pueden consultar, no llenar.
+  const hoy = hoyISO();
+  const fechaPasada = !!selectedDate && selectedDate < hoy;
 
   const handleAdd = () => {
     if (!date) return toast.error("Selecciona una fecha");
+    if (isoLocal(date) < hoyISO()) return toast.error("No puedes agregar horarios en fechas anteriores a hoy");
     if (!ciudad || !depto) return toast.error("Selecciona departamento y ciudad");
     const fecha = isoLocal(date);
     const lista = horas.split(",").map((h) => h.trim()).filter(Boolean);
@@ -121,8 +125,22 @@ function IpsCalendario() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="rounded-xl border p-2">
-              <Calendar mode="single" locale={es} selected={date} onSelect={setDate} className="mx-auto" />
+              <Calendar
+                mode="single"
+                locale={es}
+                selected={date}
+                onSelect={setDate}
+                modifiers={{ pasado: { before: new Date(`${hoy}T00:00:00`) } }}
+                modifiersClassNames={{ pasado: "text-muted-foreground/60" }}
+                className="mx-auto"
+              />
             </div>
+            {fechaPasada && (
+              <p role="status" className="flex items-start gap-2 rounded-lg bg-warning-soft px-3 py-2 text-[13px] text-warning-foreground">
+                <CalendarX2 className="mt-0.5 size-4 shrink-0" aria-hidden />
+                Esta fecha ya pasó: puedes consultar sus horarios, pero no agregar nuevos. Elige hoy o una fecha posterior.
+              </p>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <FormField id="cal-depto" label="Departamento">
                 <Select value={depto} onValueChange={(v) => { setDepto(v); setCiudad(""); }}>
@@ -152,7 +170,7 @@ function IpsCalendario() {
             <FormField id="cal-horas" label="Horas" hint="Formato 24 h, separadas por coma. Ej.: 08:00, 09:30, 14:00">
               <Input value={horas} onChange={(e) => setHoras(e.target.value)} />
             </FormField>
-            <Button onClick={handleAdd} disabled={addSlots.isPending} size="lg" className="w-full">
+            <Button onClick={handleAdd} disabled={addSlots.isPending || fechaPasada} size="lg" className="w-full">
               {addSlots.isPending ? <><Loader2 className="animate-spin" /> Guardando…</> : <><Plus /> Agregar horarios</>}
             </Button>
           </CardContent>
