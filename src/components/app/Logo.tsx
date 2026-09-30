@@ -1,7 +1,7 @@
-import { HeartPulse } from "lucide-react";
+import { Stethoscope } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-/** Marca MedCitas: isotipo turquesa + nombre. */
+/** Marca MedCitas: estetoscopio sobre turquesa + nombre (mismo isotipo que el inicio de sesión). */
 export function Logo({ collapsed, className }: { collapsed?: boolean; className?: string }) {
   return (
     <div className={cn("flex items-center gap-2.5", className)}>
@@ -10,7 +10,7 @@ export function Logo({ collapsed, className }: { collapsed?: boolean; className?
         style={{ background: "var(--gradient-primary)" }}
         aria-hidden
       >
-        <HeartPulse className="size-5" />
+        <Stethoscope className="size-5" />
       </div>
       {!collapsed && <span className="text-lg font-bold tracking-tight text-foreground">MedCitas</span>}
     </div>
