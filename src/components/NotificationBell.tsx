@@ -7,7 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth-context";
 import {
-  useNotifications, useMarkNotificationsRead, useMarkNotificationRead, useClearNotifications,
+  useNotifications, useNotificationsRealtime, useMarkNotificationsRead, useMarkNotificationRead, useClearNotifications,
 } from "@/lib/hooks/useNotifications";
 import type { Notification, Profile } from "@/lib/database.types";
 import { formatTimestamp } from "@/lib/format";
@@ -36,6 +36,8 @@ export function NotificationBell() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const { data: items = [], isLoading, isError, refetch } = useNotifications(profile?.id);
+  // Única suscripción en tiempo real de la app: la campana siempre está montada en el header.
+  useNotificationsRealtime(profile?.id);
   const markAll = useMarkNotificationsRead();
   const markOne = useMarkNotificationRead();
   const clear = useClearNotifications();

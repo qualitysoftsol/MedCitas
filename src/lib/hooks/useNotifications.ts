@@ -3,10 +3,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { Notification } from '@/lib/database.types'
 
+/**
+ * Lista de notificaciones del usuario. Se puede usar en varios componentes a la
+ * vez: todos comparten la misma consulta en caché. La actualización en tiempo
+ * real vive aparte, en `useNotificationsRealtime`, que se monta una sola vez.
+ */
 export function useNotifications(userId: string | undefined) {
-  const qc = useQueryClient()
-
-  const query = useQuery({
+  return useQuery({
     queryKey: ['notifications', userId],
     queryFn: async () => {
       if (!userId) return []
@@ -20,8 +23,16 @@ export function useNotifications(userId: string | undefined) {
     },
     enabled: !!userId,
   })
+}
 
-  // Realtime subscription
+/**
+ * Suscripción en tiempo real a notificaciones nuevas. Montar UNA sola vez
+ * (lo hace la campana del header): `supabase.channel()` reutiliza el canal con
+ * el mismo nombre, y añadir callbacks a un canal ya suscrito lanza un error.
+ */
+export function useNotificationsRealtime(userId: string | undefined) {
+  const qc = useQueryClient()
+
   useEffect(() => {
     if (!userId) return
     const channel = supabase
@@ -34,8 +45,6 @@ export function useNotifications(userId: string | undefined) {
       .subscribe()
     return () => { supabase.removeChannel(channel) }
   }, [userId, qc])
-
-  return query
 }
 
 export function useMarkNotificationsRead() {
