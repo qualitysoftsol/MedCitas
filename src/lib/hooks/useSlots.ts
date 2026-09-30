@@ -41,6 +41,58 @@ export function useAvailableSlots(ipsId: string | null) {
   })
 }
 
+/** Error de negocio: el horario fue agendado mientras se editaba. */
+export class SlotTakenError extends Error {
+  constructor() {
+    super('Este horario acaba de ser agendado y ya no se puede modificar.')
+    this.name = 'SlotTakenError'
+  }
+}
+
+type SlotPatch = Pick<Slot, 'fecha' | 'hora' | 'servicio'>
+
+/**
+ * Edita un horario libre. El filtro `taken = false` en la misma consulta evita
+ * modificar un horario que alguien agendó entre la carga y el guardado.
+ */
+export function useUpdateSlot() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, patch }: { id: string; patch: SlotPatch }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase.from('slots') as any)
+        .update(patch)
+        .eq('id', id)
+        .eq('taken', false)
+        .select('id')
+      if (error) throw error
+      if (!data || data.length === 0) throw new SlotTakenError()
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['slots'] }),
+  })
+}
+
+/**
+ * Elimina un horario libre. Falla con código 23503 si el horario tiene citas
+ * canceladas asociadas (la FK appointments.slot_id conserva el historial).
+ */
+export function useDeleteSlot() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data, error } = await supabase
+        .from('slots')
+        .delete()
+        .eq('id', id)
+        .eq('taken', false)
+        .select('id')
+      if (error) throw error
+      if (!data || data.length === 0) throw new SlotTakenError()
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['slots'] }),
+  })
+}
+
 type NewSlot = Omit<Slot, 'id' | 'created_at' | 'taken'>
 
 export function useAddSlots() {
