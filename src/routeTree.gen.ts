@@ -27,6 +27,7 @@ import { Route as AppEmpresaResultadosRouteImport } from './routes/app.empresa.r
 import { Route as AppEmpresaCitasRouteImport } from './routes/app.empresa.citas'
 import { Route as AppAdminRegistrarRouteImport } from './routes/app.admin.registrar'
 import { Route as AppAdminMenusRouteImport } from './routes/app.admin.menus'
+import { Route as AppAdminComisionesRouteImport } from './routes/app.admin.comisiones'
 import { Route as AppAdminCatalogosRouteImport } from './routes/app.admin.catalogos'
 
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
@@ -119,6 +120,11 @@ const AppAdminMenusRoute = AppAdminMenusRouteImport.update({
   path: '/admin/menus',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAdminComisionesRoute = AppAdminComisionesRouteImport.update({
+  id: '/admin/comisiones',
+  path: '/admin/comisiones',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppAdminCatalogosRoute = AppAdminCatalogosRouteImport.update({
   id: '/admin/catalogos',
   path: '/admin/catalogos',
@@ -132,6 +138,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/app/perfil': typeof AppPerfilRoute
   '/app/admin/catalogos': typeof AppAdminCatalogosRoute
+  '/app/admin/comisiones': typeof AppAdminComisionesRoute
   '/app/admin/menus': typeof AppAdminMenusRoute
   '/app/admin/registrar': typeof AppAdminRegistrarRoute
   '/app/empresa/citas': typeof AppEmpresaCitasRoute
@@ -153,6 +160,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/app/perfil': typeof AppPerfilRoute
   '/app/admin/catalogos': typeof AppAdminCatalogosRoute
+  '/app/admin/comisiones': typeof AppAdminComisionesRoute
   '/app/admin/menus': typeof AppAdminMenusRoute
   '/app/admin/registrar': typeof AppAdminRegistrarRoute
   '/app/empresa/citas': typeof AppEmpresaCitasRoute
@@ -175,6 +183,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/app/perfil': typeof AppPerfilRoute
   '/app/admin/catalogos': typeof AppAdminCatalogosRoute
+  '/app/admin/comisiones': typeof AppAdminComisionesRoute
   '/app/admin/menus': typeof AppAdminMenusRoute
   '/app/admin/registrar': typeof AppAdminRegistrarRoute
   '/app/empresa/citas': typeof AppEmpresaCitasRoute
@@ -198,6 +207,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/app/perfil'
     | '/app/admin/catalogos'
+    | '/app/admin/comisiones'
     | '/app/admin/menus'
     | '/app/admin/registrar'
     | '/app/empresa/citas'
@@ -219,6 +229,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/app/perfil'
     | '/app/admin/catalogos'
+    | '/app/admin/comisiones'
     | '/app/admin/menus'
     | '/app/admin/registrar'
     | '/app/empresa/citas'
@@ -240,6 +251,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/app/perfil'
     | '/app/admin/catalogos'
+    | '/app/admin/comisiones'
     | '/app/admin/menus'
     | '/app/admin/registrar'
     | '/app/empresa/citas'
@@ -390,6 +402,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminMenusRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/admin/comisiones': {
+      id: '/app/admin/comisiones'
+      path: '/admin/comisiones'
+      fullPath: '/app/admin/comisiones'
+      preLoaderRoute: typeof AppAdminComisionesRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/admin/catalogos': {
       id: '/app/admin/catalogos'
       path: '/admin/catalogos'
@@ -403,6 +422,7 @@ declare module '@tanstack/react-router' {
 interface AppRouteChildren {
   AppPerfilRoute: typeof AppPerfilRoute
   AppAdminCatalogosRoute: typeof AppAdminCatalogosRoute
+  AppAdminComisionesRoute: typeof AppAdminComisionesRoute
   AppAdminMenusRoute: typeof AppAdminMenusRoute
   AppAdminRegistrarRoute: typeof AppAdminRegistrarRoute
   AppEmpresaCitasRoute: typeof AppEmpresaCitasRoute
@@ -421,6 +441,7 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppPerfilRoute: AppPerfilRoute,
   AppAdminCatalogosRoute: AppAdminCatalogosRoute,
+  AppAdminComisionesRoute: AppAdminComisionesRoute,
   AppAdminMenusRoute: AppAdminMenusRoute,
   AppAdminRegistrarRoute: AppAdminRegistrarRoute,
   AppEmpresaCitasRoute: AppEmpresaCitasRoute,

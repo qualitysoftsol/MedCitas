@@ -117,6 +117,23 @@ export type Database = {
         Insert: { nombre: string; roles_permitidos?: string[] }
         Update: Partial<{ nombre: string; roles_permitidos: string[] }>
       }
+      precios_ips: {
+        Row: { ips_id: string; servicio_id: string; precio: number; updated_at: string }
+        Insert: { ips_id: string; servicio_id: string; precio: number; updated_at?: string }
+        Update: Partial<{ precio: number; updated_at: string }>
+      }
+      comisiones: {
+        Row: {
+          id: string
+          ips_id: string | null
+          servicio_id: string | null
+          rol: 'empresa' | 'particular' | null
+          porcentaje: number
+          created_at: string
+        }
+        Insert: { ips_id?: string | null; servicio_id?: string | null; rol?: 'empresa' | 'particular' | null; porcentaje: number }
+        Update: Partial<{ porcentaje: number }>
+      }
     }
   }
 }
@@ -127,6 +144,8 @@ export type Slot = Database['public']['Tables']['slots']['Row']
 export type Appointment = Database['public']['Tables']['appointments']['Row']
 export type Resultado = Database['public']['Tables']['resultados']['Row']
 export type Notification = Database['public']['Tables']['notifications']['Row']
+export type PrecioIps = Database['public']['Tables']['precios_ips']['Row']
+export type Comision = Database['public']['Tables']['comisiones']['Row']
 export type Clasificacion = Database['public']['Tables']['clasificaciones']['Row']
 export type TipoExamen = Database['public']['Tables']['tipos_examen']['Row']
 

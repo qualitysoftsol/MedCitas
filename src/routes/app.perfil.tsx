@@ -11,6 +11,7 @@ import { supabase } from "@/lib/supabase";
 import type { Profile } from "@/lib/database.types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { IpsFotosSection } from "@/components/IpsFotosSection";
@@ -18,7 +19,8 @@ import { AddressInput } from "@/components/AddressInput";
 import { PageHeader } from "@/components/app/PageHeader";
 import { FormField, IconInput, PasswordInput, PasswordChecklist, PASSWORD_RULES } from "@/components/app/FormField";
 import { useServicios } from "@/lib/hooks/useCatalogos";
-import { iniciales } from "@/lib/format";
+import { useGuardarPrecios, useMisPrecios } from "@/lib/hooks/usePrecios";
+import { formatMiles, iniciales } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/app/perfil")({
@@ -118,6 +120,8 @@ function Perfil() {
   const [newP, setNewP] = useState("");
   const [confirmP, setConfirmP] = useState("");
   const [selectedServicios, setSelectedServicios] = useState<string[]>([]);
+  // Precio por id de servicio, solo dígitos ("" = sin precio).
+  const [precios, setPrecios] = useState<Record<string, string>>({});
   const [resolvedLoc, setResolvedLoc] = useState<{ lat: number; lng: number } | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [passTouched, setPassTouched] = useState(false);
@@ -138,6 +142,12 @@ function Perfil() {
   const [contabilidadEmail, setContabilidadEmail] = useState("");
 
   const { data: servicios = [] } = useServicios();
+  const { data: misPrecios } = useMisPrecios(profile?.role === "ips" ? profile.id : undefined);
+  const guardarPrecios = useGuardarPrecios();
+
+  useEffect(() => {
+    if (misPrecios) setPrecios(Object.fromEntries([...misPrecios].map(([id, precio]) => [id, String(precio)])));
+  }, [misPrecios]);
 
   useEffect(() => {
     if (!profile) return;
@@ -245,7 +255,7 @@ function Perfil() {
     setUploading(false);
   };
 
-  const saveProfile = (e: React.FormEvent) => {
+  const saveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitted(true);
     setSaveError(null);
@@ -272,24 +282,28 @@ function Perfil() {
       patch.contacto_contabilidad_telefono = contabilidadTelefono;
       patch.contacto_contabilidad_email = contabilidadEmail.trim();
     }
-    updateProfile.mutate(
-      { id: profile.id, patch },
-      {
-        onSuccess: () => {
-          toast.success("Información actualizada");
-          setSavedAt(Date.now());
-          setSubmitted(false);
-          void refreshProfile();
-        },
-        onError: (err: any) => {
-          const msg = err?.message?.includes("Failed to fetch")
-            ? "Sin conexión. Revisa tu internet e inténtalo de nuevo."
-            : "No pudimos guardar los cambios. Inténtalo de nuevo.";
-          setSaveError(msg);
-          toast.error(msg);
-        },
+    try {
+      await updateProfile.mutateAsync({ id: profile.id, patch });
+      if (profile.role === 'ips') {
+        // Solo se tocan los precios de los servicios marcados; un precio vacío se borra.
+        await guardarPrecios.mutateAsync({
+          ipsId: profile.id,
+          precios: servicios
+            .filter((s) => selectedServicios.includes(s.nombre))
+            .map((s) => ({ servicio_id: s.id, precio: precios[s.id] ? Number(precios[s.id]) : null })),
+        });
       }
-    );
+      toast.success("Información actualizada");
+      setSavedAt(Date.now());
+      setSubmitted(false);
+      void refreshProfile();
+    } catch (err: any) {
+      const msg = err?.message?.includes("Failed to fetch")
+        ? "Sin conexión. Revisa tu internet e inténtalo de nuevo."
+        : "No pudimos guardar los cambios. Inténtalo de nuevo.";
+      setSaveError(msg);
+      toast.error(msg);
+    }
   };
 
   const passOk = PASSWORD_RULES.every((r) => r.test(newP));
@@ -394,18 +408,42 @@ function Perfil() {
 
               {profile.role === 'ips' && (
                 <fieldset className="space-y-3 border-t pt-5">
-                  <legend className="text-sm font-semibold">Servicios que ofrece la IPS</legend>
-                  <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                    {servicios.map((d) => (
-                      <label key={d.id} className="flex cursor-pointer select-none items-center gap-2.5 rounded-lg border bg-card px-3 py-2.5 text-sm transition-colors hover:border-primary/40 has-[:checked]:border-primary has-[:checked]:bg-primary-soft">
-                        <Checkbox
-                          checked={selectedServicios.includes(d.nombre)}
-                          onCheckedChange={() => toggleItem(selectedServicios, setSelectedServicios, d.nombre)}
-                        />
-                        {d.nombre}
-                      </label>
-                    ))}
-                  </div>
+                  <legend className="text-sm font-semibold">Servicios y precios</legend>
+                  <p className="text-[13px] text-muted-foreground">
+                    Marca los servicios que ofreces y escribe el precio de cada uno en pesos. Solo puedes crear horarios de servicios con precio.
+                  </p>
+                  <ul className="divide-y rounded-xl border">
+                    {servicios.map((d) => {
+                      const activo = selectedServicios.includes(d.nombre);
+                      const sinPrecio = activo && !precios[d.id];
+                      return (
+                        <li key={d.id} className={cn("flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5 sm:flex-nowrap", activo && "bg-primary-soft/40")}>
+                          <label className="flex min-w-0 flex-1 cursor-pointer select-none items-center gap-2.5 text-sm">
+                            <Checkbox checked={activo} onCheckedChange={() => toggleItem(selectedServicios, setSelectedServicios, d.nombre)} />
+                            <span className="min-w-0">
+                              <span className="block truncate">{d.nombre}</span>
+                              {sinPrecio && <span className="block text-xs text-warning-foreground">Sin precio: no podrás crear horarios</span>}
+                            </span>
+                          </label>
+                          {activo && (
+                            <div className="relative w-full sm:w-44">
+                              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground" aria-hidden>$</span>
+                              <Input
+                                id={`precio-${d.id}`}
+                                aria-label={`Precio de ${d.nombre} en pesos`}
+                                inputMode="numeric"
+                                autoComplete="off"
+                                placeholder="Precio"
+                                value={precios[d.id] ? formatMiles(Number(precios[d.id])) : ""}
+                                onChange={(e) => setPrecios((p) => ({ ...p, [d.id]: soloDigitos(e.target.value).replace(/^0+/, "").slice(0, 9) }))}
+                                className="bg-card pl-7 text-right tabular-nums"
+                              />
+                            </div>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
                 </fieldset>
               )}
 
@@ -456,8 +494,8 @@ function Perfil() {
 
               <div className="flex flex-col-reverse gap-3 border-t pt-5 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-xs text-muted-foreground"><span className="text-danger-foreground">*</span> Campos obligatorios</p>
-                <Button type="submit" size="lg" disabled={updateProfile.isPending} className="w-full sm:w-auto">
-                  {updateProfile.isPending ? <><Loader2 className="animate-spin" /> Guardando…</> : <><Save /> Guardar cambios</>}
+                <Button type="submit" size="lg" disabled={updateProfile.isPending || guardarPrecios.isPending} className="w-full sm:w-auto">
+                  {updateProfile.isPending || guardarPrecios.isPending ? <><Loader2 className="animate-spin" /> Guardando…</> : <><Save /> Guardar cambios</>}
                 </Button>
               </div>
             </form>

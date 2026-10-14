@@ -2,6 +2,7 @@ import type { ReactNode, RefObject } from "react";
 import { Check, ChevronLeft, ChevronRight, Pencil } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { formatPesos } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export interface WizardStep {
@@ -215,6 +216,19 @@ export function SuccessCard({
         </div>
         <CardContent className="space-y-4 pt-6 text-left">{children}</CardContent>
       </Card>
+    </div>
+  );
+}
+
+/** Valor a pagar, destacado en la confirmación. */
+export function TotalRow({ label = "Valor total", valor, detalle }: { label?: string; valor: number; detalle?: string }) {
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-xl border-2 border-primary/30 bg-primary-soft px-4 py-3">
+      <div>
+        <p className="font-semibold">{label}</p>
+        {detalle && <p className="text-[13px] text-muted-foreground">{detalle}</p>}
+      </div>
+      <p className="shrink-0 text-2xl font-bold tabular-nums">{formatPesos(valor)}</p>
     </div>
   );
 }

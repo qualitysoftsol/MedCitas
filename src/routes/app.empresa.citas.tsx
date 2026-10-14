@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useAuth } from "@/lib/auth-context";
 import { useAppointments, useCancelAppointment } from "@/lib/hooks/useAppointments";
+import { useValoresCitas } from "@/lib/hooks/usePrecios";
+import { formatValor } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,6 +16,7 @@ export const Route = createFileRoute("/app/empresa/citas")({
 function EmpresaCitas() {
   const { profile } = useAuth();
   const { data: mine = [] } = useAppointments(profile?.id, profile?.role);
+  const { data: valores } = useValoresCitas(!!profile);
   const cancelAppointment = useCancelAppointment();
 
   const stats = {
@@ -55,6 +58,7 @@ function EmpresaCitas() {
                     <TableHead>Examen</TableHead>
                     <TableHead>IPS</TableHead>
                     <TableHead>Ciudad</TableHead>
+                    <TableHead className="text-right">Valor</TableHead>
                     <TableHead>Estado</TableHead>
                     <TableHead className="text-right">Acciones</TableHead>
                   </TableRow>
@@ -68,6 +72,7 @@ function EmpresaCitas() {
                       <TableCell className="capitalize">{a.tipo_examen}</TableCell>
                       <TableCell>{a.ips?.nombre ?? "—"}</TableCell>
                       <TableCell>{a.ciudad}</TableCell>
+                      <TableCell className="whitespace-nowrap text-right tabular-nums">{formatValor(valores?.get(a.id))}</TableCell>
                       <TableCell>
                         <Badge variant={a.estado === "atendida" ? "default" : "secondary"} className="capitalize">
                           {a.estado}

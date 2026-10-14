@@ -1,8 +1,9 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { DEPARTAMENTOS, haversineKm } from "@/lib/colombia";
 import { supabase } from "@/lib/supabase";
 import { useClasificaciones, useServicios, derivarClasificaciones } from "@/lib/hooks/useCatalogos";
+import { precioKey, usePreciosServicios } from "@/lib/hooks/usePrecios";
 import type { Profile, IpsFoto, Slot } from "@/lib/database.types";
 import { hoyISO } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -80,28 +81,36 @@ export function useIpsSearch({
       if (ipsIds.length === 0) return [];
       const { data, error } = await supabase
         .from("slots")
-        .select("ips_id, fecha, hora")
+        .select("ips_id, fecha, hora, servicio")
         .in("ips_id", ipsIds)
         .eq("taken", false)
         .gte("fecha", hoy)
         .order("fecha")
         .order("hora");
       if (error) throw error;
-      return data as Pick<Slot, "ips_id" | "fecha" | "hora">[];
+      return data as Pick<Slot, "ips_id" | "fecha" | "hora" | "servicio">[];
     },
     enabled: ipsIds.length > 0,
   });
 
+  // Valor final de cada servicio (precio + comisión). Un horario cuyo servicio no
+  // tiene precio no se puede agendar, así que no cuenta como disponible.
+  const { data: precios, isLoading: preciosLoading } = usePreciosServicios(ipsIds);
+  const precioDe = useCallback(
+    (s: Pick<Slot, "ips_id" | "servicio">) => precios?.get(precioKey(s.ips_id, s.servicio)) ?? null,
+    [precios],
+  );
+
   const disponibilidad = useMemo(() => {
     const map = new Map<string, Disponibilidad>();
-    libres.filter((s) => esFuturo(s, hoy)).forEach((s) => {
+    libres.filter((s) => esFuturo(s, hoy) && precioDe(s) != null).forEach((s) => {
       const cur = map.get(s.ips_id) ?? { count: 0, primero: null };
       cur.count += 1;
       if (!cur.primero) cur.primero = s;
       map.set(s.ips_id, cur);
     });
     return map;
-  }, [libres, hoy]);
+  }, [libres, hoy, precioDe]);
 
   const ciudadObj = DEPARTAMENTOS.find((d) => d.nombre === depto)?.ciudades.find((c) => c.nombre === ciudad);
   const centro = useMemo(
@@ -132,7 +141,8 @@ export function useIpsSearch({
 
   return {
     clasificaciones, catalogoServicios, ipsEnCiudad, ipsLoading, ipsError, refetchIps, portadaUrl,
-    disponibilidad, libresLoading, ipsConDistancia, markers, centro,
+    disponibilidad, libresLoading: libresLoading || preciosLoading, ipsConDistancia, markers, centro,
+    precioDe, preciosLoading,
   };
 }
 

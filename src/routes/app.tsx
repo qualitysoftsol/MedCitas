@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   CalendarDays, ClipboardList, FileUp, Users, Building2, ShieldCheck, LogOut, LayoutDashboard, Stethoscope,
-  User, BookOpen, House, CalendarPlus, FileText, UserRound, ChevronDown, Lock,
+  User, BookOpen, House, CalendarPlus, FileText, UserRound, ChevronDown, Lock, Percent,
 } from "lucide-react";
 import { NotificationBell } from "@/components/NotificationBell";
 import { Logo } from "@/components/app/Logo";
@@ -47,6 +47,7 @@ const NAV: Record<Role, NavItem[]> = {
     { to: "/app/admin", title: "Panel", icon: LayoutDashboard },
     { to: "/app/admin/registrar", title: "Registrar IPS/Empresa", icon: Users },
     { to: "/app/admin/catalogos", title: "Catálogos", icon: BookOpen },
+    { to: "/app/admin/comisiones", title: "Comisiones", icon: Percent },
     { to: "/app/admin/menus", title: "Menús por rol", icon: ShieldCheck },
   ],
 };

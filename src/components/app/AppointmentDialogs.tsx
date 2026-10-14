@@ -1,4 +1,4 @@
-import { CalendarDays, Clock, Stethoscope, Building2, MapPin, Phone, ClipboardList, Navigation, XCircle, Loader2 } from "lucide-react";
+import { CalendarDays, Clock, Stethoscope, Building2, MapPin, Phone, ClipboardList, Navigation, XCircle, Loader2, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
@@ -10,7 +10,8 @@ import {
 import { Button, buttonVariants } from "@/components/ui/button";
 import { AppointmentStatusBadge } from "./StatusBadge";
 import { useCancelAppointment, type AppointmentWithNames, type AppointmentIps } from "@/lib/hooks/useAppointments";
-import { capitalizar, diasHasta, formatFecha, formatHora, relativoDias } from "@/lib/format";
+import { useValoresCitas } from "@/lib/hooks/usePrecios";
+import { capitalizar, diasHasta, formatFecha, formatHora, formatPesos, relativoDias } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /** Una cita se puede cancelar mientras esté agendada y su fecha no haya pasado. */
@@ -54,6 +55,8 @@ export function AppointmentDetailDialog({
   onRequestCancel: (a: AppointmentWithNames) => void;
 }) {
   const mapa = a ? ubicacionUrl(a.ips, a.ciudad) : null;
+  const { data: valores } = useValoresCitas(!!a);
+  const valor = a ? valores?.get(a.id) : undefined;
   return (
     <Dialog open={!!a} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
@@ -75,6 +78,7 @@ export function AppointmentDetailDialog({
               <InfoRow icon={Clock} label="Hora">{formatHora(a.hora)}</InfoRow>
               <InfoRow icon={ClipboardList} label="Tipo de examen">{capitalizar(a.tipo_examen)}</InfoRow>
               <InfoRow icon={Stethoscope} label="Servicio">{a.servicio || "—"}</InfoRow>
+              {valor != null && <InfoRow icon={Wallet} label="Valor"><span className="tabular-nums">{formatPesos(valor)}</span></InfoRow>}
               <div className="sm:col-span-2"><InfoRow icon={Building2} label="IPS">{a.ips?.nombre ?? "—"}</InfoRow></div>
               <div className="sm:col-span-2">
                 <InfoRow icon={MapPin} label="Dirección">

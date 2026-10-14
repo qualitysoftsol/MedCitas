@@ -1,10 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import {
-  CalendarDays, CalendarCheck, CheckCircle2, XCircle, Plus, Search, Eye, ChevronLeft, ChevronRight, MapPin, Clock, SearchX,
+  CalendarDays, CalendarCheck, CheckCircle2, XCircle, Plus, Search, Eye, ChevronLeft, ChevronRight, MapPin, Clock, SearchX, Wallet,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useAppointments, type AppointmentWithNames } from "@/lib/hooks/useAppointments";
+import { useValoresCitas } from "@/lib/hooks/usePrecios";
 import { Card } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +16,7 @@ import { StatCard } from "@/components/app/StatCard";
 import { AppointmentStatusBadge } from "@/components/app/StatusBadge";
 import { EmptyState, ErrorState } from "@/components/app/EmptyState";
 import { AppointmentDetailDialog, CancelAppointmentDialog, puedeCancelar } from "@/components/app/AppointmentDialogs";
-import { capitalizar, diasHasta, fechaPartes, formatFecha, formatHora } from "@/lib/format";
+import { capitalizar, diasHasta, fechaPartes, formatFecha, formatHora, formatPesos, formatValor } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/app/particular/citas")({
@@ -43,6 +44,7 @@ function ordenar(list: AppointmentWithNames[]) {
 function ParticularCitas() {
   const { profile } = useAuth();
   const { data: citas = [], isLoading, isError, refetch } = useAppointments(profile?.id, profile?.role);
+  const { data: valores } = useValoresCitas(!!profile);
   const [filtro, setFiltro] = useState<Filtro>("todas");
   const [busqueda, setBusqueda] = useState("");
   const [page, setPage] = useState(1);
@@ -161,6 +163,7 @@ function ParticularCitas() {
                     <TableHead>Hora</TableHead>
                     <TableHead>Examen / Servicio</TableHead>
                     <TableHead>IPS</TableHead>
+                    <TableHead className="text-right">Valor</TableHead>
                     <TableHead>Estado</TableHead>
                     <TableHead className="pr-5 text-right">Acciones</TableHead>
                   </TableRow>
@@ -178,6 +181,7 @@ function ParticularCitas() {
                         <div className="truncate font-medium" title={a.ips?.nombre}>{a.ips?.nombre ?? "—"}</div>
                         <div className="text-xs text-muted-foreground">{a.ciudad}</div>
                       </TableCell>
+                      <TableCell className="whitespace-nowrap text-right tabular-nums">{formatValor(valores?.get(a.id))}</TableCell>
                       <TableCell><AppointmentStatusBadge estado={a.estado} /></TableCell>
                       <TableCell className="pr-5">
                         <div className="flex justify-end gap-2">
@@ -201,6 +205,7 @@ function ParticularCitas() {
             <ul className="divide-y md:hidden">
               {visibles.map((a) => {
                 const p = fechaPartes(a.fecha);
+                const valor = valores?.get(a.id);
                 return (
                   <li key={a.id} className="p-4">
                     <div className="flex gap-3">
@@ -222,6 +227,11 @@ function ParticularCitas() {
                           <MapPin className="mt-0.5 size-3.5 shrink-0" aria-hidden />
                           <span className="min-w-0">{a.ips?.nombre ?? "—"} · {a.ciudad}</span>
                         </p>
+                        {valor != null && (
+                          <p className="mt-0.5 flex items-center gap-1.5 text-sm font-semibold tabular-nums">
+                            <Wallet className="size-3.5 text-muted-foreground" aria-hidden /> {formatPesos(valor)}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="mt-3 grid grid-cols-2 gap-2">

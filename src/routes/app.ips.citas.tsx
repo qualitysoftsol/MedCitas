@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { ClipboardList } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useAppointments, useCancelAppointment, useSolicitantes } from "@/lib/hooks/useAppointments";
+import { useValoresCitas } from "@/lib/hooks/usePrecios";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -11,7 +12,7 @@ import { PageHeader } from "@/components/app/PageHeader";
 import { EmptyState } from "@/components/app/EmptyState";
 import { AppointmentStatusBadge } from "@/components/app/StatusBadge";
 import { SolicitanteTag } from "@/components/app/SolicitanteTag";
-import { capitalizar, formatFechaCorta, formatHora } from "@/lib/format";
+import { capitalizar, formatFechaCorta, formatHora, formatValor } from "@/lib/format";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/app/ips/citas")({
@@ -25,6 +26,8 @@ function IpsCitas() {
   const { profile } = useAuth();
   const { data: mine = [] } = useAppointments(profile?.id, profile?.role);
   const { data: solicitantes, isLoading: solLoading } = useSolicitantes(!!profile);
+  // Para la IPS es su precio base (sin la comisión de la plataforma).
+  const { data: valores } = useValoresCitas(!!profile);
   const cancelAppointment = useCancelAppointment();
   const [filtro, setFiltro] = useState(TODOS);
 
@@ -78,6 +81,7 @@ function IpsCitas() {
                     <TableHead>Cédula</TableHead>
                     <TableHead>Examen</TableHead>
                     <TableHead>Servicio</TableHead>
+                    <TableHead className="text-right">Valor</TableHead>
                     <TableHead>Estado</TableHead>
                     <TableHead className="pr-5 text-right">Acciones</TableHead>
                   </TableRow>
@@ -94,6 +98,7 @@ function IpsCitas() {
                       <TableCell className="tabular-nums">{a.empleado_cedula}</TableCell>
                       <TableCell>{capitalizar(a.tipo_examen)}</TableCell>
                       <TableCell>{a.servicio}</TableCell>
+                      <TableCell className="whitespace-nowrap text-right tabular-nums">{formatValor(valores?.get(a.id))}</TableCell>
                       <TableCell><AppointmentStatusBadge estado={a.estado} /></TableCell>
                       <TableCell className="pr-5 text-right">
                         {a.estado === "agendada" && (

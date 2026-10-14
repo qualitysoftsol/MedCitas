@@ -16,7 +16,7 @@ import { IpsDetailPanel } from "@/components/IpsDetailPanel";
 import { EmptyState } from "@/components/app/EmptyState";
 import { FormField } from "@/components/app/FormField";
 import { derivarClasificaciones } from "@/lib/hooks/useCatalogos";
-import { capitalizar, fechaPartes, formatFecha, formatFechaCorta, formatHora } from "@/lib/format";
+import { capitalizar, fechaPartes, formatFecha, formatFechaCorta, formatHora, formatPesos } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { StepHeading, type WizardStep } from "./WizardParts";
 import { chipClass, formatDistancia, type IpsSearch, type LatLng } from "./useIpsSearch";
@@ -369,7 +369,7 @@ export function IpsStep({
 // ─── Selector de día y hora ───────────────────────────────────────────────────
 
 export function HorarioPicker({
-  slots, loading, selectedSlot, onSelectSlot, selectedFecha, onSelectFecha, onOtraIps,
+  slots, loading, selectedSlot, onSelectSlot, selectedFecha, onSelectFecha, onOtraIps, precioDe,
 }: {
   slots: Slot[];
   loading: boolean;
@@ -378,6 +378,8 @@ export function HorarioPicker({
   selectedFecha: string | null;
   onSelectFecha: (f: string) => void;
   onOtraIps: () => void;
+  /** Valor final del horario (precio + comisión). */
+  precioDe: (s: Slot) => number | null;
 }) {
   const fechas = Array.from(new Set(slots.map((s) => s.fecha)));
   const fechaActiva = selectedFecha && fechas.includes(selectedFecha) ? selectedFecha : fechas[0] ?? null;
@@ -432,6 +434,7 @@ export function HorarioPicker({
         <div role="radiogroup" aria-label="Horas disponibles" className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
           {horasDelDia.map((s) => {
             const active = selectedSlot === s.id;
+            const precio = precioDe(s);
             return (
               <button
                 key={s.id}
@@ -448,6 +451,7 @@ export function HorarioPicker({
                   {formatHora(s.hora)}
                 </span>
                 <span className="mt-0.5 block truncate text-xs text-muted-foreground">{s.servicio}</span>
+                {precio != null && <span className="mt-1 block text-sm font-semibold tabular-nums">{formatPesos(precio)}</span>}
               </button>
             );
           })}

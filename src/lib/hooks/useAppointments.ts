@@ -76,6 +76,7 @@ export function useBookAppointment() {
     },
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: ['appointments'] })
+      qc.invalidateQueries({ queryKey: ['valores-citas'] })
       qc.invalidateQueries({ queryKey: ['slots', 'available', variables.ips_id] })
       qc.invalidateQueries({ queryKey: ['slots', variables.ips_id] })
     },
@@ -97,6 +98,7 @@ export function useCancelAppointment() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['appointments'] })
+      qc.invalidateQueries({ queryKey: ['valores-citas'] })
       qc.invalidateQueries({ queryKey: ['slots'] })
     },
   })
@@ -118,6 +120,7 @@ export function useBookAppointmentsBatch() {
     },
     onSuccess: (_data, citas) => {
       qc.invalidateQueries({ queryKey: ['appointments'] })
+      qc.invalidateQueries({ queryKey: ['valores-citas'] })
       const ipsId = citas[0]?.ips_id
       if (ipsId) qc.invalidateQueries({ queryKey: ['slots', 'available', ipsId] })
       if (ipsId) qc.invalidateQueries({ queryKey: ['slots', ipsId] })

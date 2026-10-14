@@ -104,3 +104,21 @@ export function capitalizar(s: string | null | undefined): string {
   if (!s) return "";
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
+
+const PESOS = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
+const MILES = new Intl.NumberFormat("es-CO", { maximumFractionDigits: 0 });
+
+/** 85000 → "$ 85.000" */
+export function formatPesos(valor: number): string {
+  return PESOS.format(valor);
+}
+
+/** Valor de una cita, o "—" si no tiene (las agendadas antes de existir los precios). */
+export function formatValor(valor: number | null | undefined): string {
+  return valor != null ? formatPesos(valor) : "—";
+}
+
+/** 85000 → "85.000" (para mostrar dentro de un campo de precio) */
+export function formatMiles(valor: number): string {
+  return MILES.format(valor);
+}
