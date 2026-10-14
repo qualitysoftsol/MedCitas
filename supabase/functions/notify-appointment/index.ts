@@ -11,8 +11,15 @@ serve(async (req) => {
 
   const [{ data: ips }, { data: solicitante }] = await Promise.all([
     supabase.from('profiles').select('nombre').eq('id', record.ips_id).single(),
-    supabase.from('profiles').select('nombre').eq('id', record.solicitante_id).single(),
+    supabase.from('profiles').select('nombre, role').eq('id', record.solicitante_id).single(),
   ])
+
+  // Para la IPS: quién solicitó la cita (la empresa, o el paciente como particular).
+  const origen = solicitante?.role === 'empresa'
+    ? `Solicitada por la empresa ${solicitante.nombre}.`
+    : solicitante?.role === 'particular'
+      ? 'Solicitada por el paciente (particular).'
+      : ''
 
   const { data: { user: ipsUser } } = await supabase.auth.admin.getUserById(record.ips_id)
   const { data: { user: solUser } } = await supabase.auth.admin.getUserById(record.solicitante_id)
@@ -26,10 +33,13 @@ serve(async (req) => {
     ? `La cita de ${record.empleado_nombre} (CC ${record.empleado_cedula}) el ${record.fecha} a las ${record.hora} ha sido cancelada.`
     : `Se ha confirmado la cita de ${record.empleado_nombre} (CC ${record.empleado_cedula}) en ${ips?.nombre} el ${record.fecha} a las ${record.hora}. Examen: ${record.tipo_examen}.`
 
-  const html = `
+  // La IPS recibe además quién solicitó la cita; el solicitante recibe el mensaje de siempre.
+  const ipsBody = origen ? `${body} ${origen}` : body
+
+  const renderHtml = (texto: string) => `
     <div style="font-family:sans-serif;max-width:600px;margin:0 auto">
       <h2 style="color:#0891b2">MedCitas</h2>
-      <p>${body}</p>
+      <p>${texto}</p>
       <a href="${Deno.env.get('SITE_URL') ?? 'https://medcitas.co'}" style="display:inline-block;margin-top:16px;padding:10px 20px;background:#0891b2;color:white;border-radius:6px;text-decoration:none">
         Ver en plataforma
       </a>
@@ -37,12 +47,15 @@ serve(async (req) => {
   `
 
   const testEmail = Deno.env.get('RESEND_TEST_EMAIL')
-  const realRecipients = [ipsUser?.email, solUser?.email].filter(Boolean) as string[]
-  // In test mode all emails go to RESEND_TEST_EMAIL; in production send to real recipients
-  const recipients = testEmail ? [testEmail] : realRecipients
-  console.log('[notify-appointment] sending to:', recipients, testEmail ? '(test mode)' : '')
+  const realEmails = [
+    { to: ipsUser?.email, html: renderHtml(ipsBody) },
+    { to: solUser?.email, html: renderHtml(body) },
+  ].filter((e): e is { to: string; html: string } => !!e.to)
+  // In test mode every email (one per party) goes to RESEND_TEST_EMAIL; in production to real recipients
+  const emails = testEmail ? realEmails.map((e) => ({ ...e, to: testEmail })) : realEmails
+  console.log('[notify-appointment] sending to:', emails.map((e) => e.to), testEmail ? '(test mode)' : '')
 
-  await Promise.all(recipients.map(async (to) => {
+  await Promise.all(emails.map(async ({ to, html }) => {
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${Deno.env.get('RESEND_API_KEY')}`, 'Content-Type': 'application/json' },
@@ -57,11 +70,9 @@ serve(async (req) => {
   const notifTitulo = isCancel
     ? `Cita cancelada — ${record.fecha} ${record.hora}`
     : `Cita confirmada — ${record.empleado_nombre}`
-  const notifMensaje = body
-
   await supabase.from('notifications').insert([
-    { user_id: record.ips_id, tipo: notifType, titulo: notifTitulo, mensaje: notifMensaje },
-    { user_id: record.solicitante_id, tipo: notifType, titulo: notifTitulo, mensaje: notifMensaje },
+    { user_id: record.ips_id, tipo: notifType, titulo: notifTitulo, mensaje: ipsBody },
+    { user_id: record.solicitante_id, tipo: notifType, titulo: notifTitulo, mensaje: body },
   ])
 
   return new Response('ok')

@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
-import { useAppointments } from "@/lib/hooks/useAppointments";
+import { useAppointments, useSolicitantes } from "@/lib/hooks/useAppointments";
+import { SolicitanteTag } from "@/components/app/SolicitanteTag";
 import { useResultados, useAddResultado, useResultadoPdfUrl } from "@/lib/hooks/useResultados";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,12 @@ function IpsResultados() {
   const { profile } = useAuth();
   const { data: appointments = [] } = useAppointments(profile?.id, 'ips');
   const { data: atendidas = [] } = useResultados(profile?.id, 'ips');
+  const { data: solicitantes, isLoading: solLoading } = useSolicitantes(!!profile);
+  // Nombre de quien solicitó la cita: la empresa, o "Particular".
+  const nombreSolicitante = (id: string) => {
+    const s = solicitantes?.get(id);
+    return !s ? "" : s.role === "particular" ? "Particular" : s.nombre;
+  };
   const addResultado = useAddResultado();
 
   const pendientes = appointments.filter((a) => a.estado === 'agendada');
@@ -99,7 +106,7 @@ function IpsResultados() {
                       <SelectContent>
                         {pendientes.map((a) => (
                           <SelectItem key={a.id} value={a.id}>
-                            {a.fecha} {a.hora} · {a.empleado_nombre} ({a.empleado_cedula})
+                            {a.fecha} {a.hora} · {a.empleado_nombre} ({a.empleado_cedula}){nombreSolicitante(a.solicitante_id) && ` · ${nombreSolicitante(a.solicitante_id)}`}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -156,7 +163,10 @@ function IpsResultados() {
             <ul className="divide-y">
               {pendientes.map((a) => (
                 <li key={a.id} className="py-2 text-sm">
-                  <b>{a.empleado_nombre}</b> · {a.fecha} {a.hora} · {a.servicio}
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span><b>{a.empleado_nombre}</b> · {a.fecha} {a.hora} · {a.servicio}</span>
+                    <SolicitanteTag solicitante={solicitantes?.get(a.solicitante_id)} loading={solLoading} className="text-sm" />
+                  </div>
                 </li>
               ))}
             </ul>
@@ -173,7 +183,10 @@ function IpsResultados() {
             <ul className="divide-y">
               {atendidas.map((r: Resultado) => (
                 <li key={r.id} className="py-3">
-                  <div className="font-medium">{r.empleado_nombre} · {r.empleado_cedula}</div>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-medium">{r.empleado_nombre} · {r.empleado_cedula}</span>
+                    <SolicitanteTag solicitante={solicitantes?.get(r.solicitante_id)} loading={solLoading} className="text-sm" />
+                  </div>
                   <div className="text-xs text-muted-foreground">{r.fecha} — Aptitud: {r.apto.replace("_", " ")}</div>
                   <div className="text-sm mt-1">{r.diagnostico}</div>
                   {r.observaciones && <div className="text-xs text-muted-foreground mt-1">Obs: {r.observaciones}</div>}

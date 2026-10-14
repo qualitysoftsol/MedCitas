@@ -40,6 +40,27 @@ export function useAppointments(userId: string | undefined, role: string | undef
   })
 }
 
+export type Solicitante = { id: string; nombre: string; role: 'empresa' | 'particular' | 'ips' | 'admin' }
+
+/**
+ * Para la IPS: nombre y tipo de cuenta de quienes le agendaron citas.
+ * Usa la función `solicitantes_de_ips` (migración 015) porque la IPS no puede
+ * leer directamente los perfiles de empresas y particulares.
+ */
+export function useSolicitantes(enabled: boolean) {
+  return useQuery({
+    queryKey: ['solicitantes-de-ips'],
+    queryFn: async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase.rpc as any)('solicitantes_de_ips')
+      if (error) throw error
+      return new Map((data as Solicitante[]).map((s) => [s.id, s]))
+    },
+    enabled,
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
 type BookData = Omit<Appointment, 'id' | 'created_at' | 'estado'>
 
 export function useBookAppointment() {
