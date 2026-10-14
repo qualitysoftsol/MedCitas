@@ -5,9 +5,6 @@ import { cn } from "@/lib/utils";
 const KEY = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY as string | undefined;
 const CHANNEL = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID as string | undefined;
 
-// Colores de marca para los marcadores (el SDK de Maps no lee variables CSS).
-const BRAND = "#0f7a74";
-const BRAND_LIGHT = "#5fb3ad";
 const ORIGIN = "#e11d48";
 
 declare global {
@@ -51,14 +48,17 @@ export interface MapMarker {
   selected?: boolean;
 }
 
+// Icono original: pin estándar de Google; la IPS seleccionada se marca con un círculo.
+// `null` restablece el pin por defecto al deseleccionar.
 function markerIcon(selected: boolean) {
+  if (!selected) return null;
   return {
     path: window.google.maps.SymbolPath.CIRCLE,
-    scale: selected ? 12 : 8,
-    fillColor: selected ? BRAND : BRAND_LIGHT,
+    scale: 10,
+    fillColor: "#0891b2",
     fillOpacity: 1,
-    strokeColor: "#ffffff",
-    strokeWeight: selected ? 3 : 2,
+    strokeColor: "#fff",
+    strokeWeight: 2,
   };
 }
 

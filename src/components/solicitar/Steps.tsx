@@ -174,7 +174,7 @@ export function UbicacionStep({
           origin={userLoc}
           height="clamp(260px, 50vh, 460px)"
         />
-        <p className="mt-2 text-xs text-muted-foreground">Toca el mapa para fijar la ubicación. Los puntos turquesa son las IPS de {ciudad}.</p>
+        <p className="mt-2 text-xs text-muted-foreground">Toca el mapa para fijar la ubicación. Los marcadores son las IPS de {ciudad}.</p>
       </div>
     </>
   );
