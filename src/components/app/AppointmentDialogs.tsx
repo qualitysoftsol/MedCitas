@@ -1,4 +1,4 @@
-import { CalendarDays, Clock, Stethoscope, Building2, MapPin, Phone, ClipboardList, Navigation, XCircle, Loader2, Wallet } from "lucide-react";
+import { CalendarDays, Clock, Stethoscope, Building2, MapPin, Phone, ClipboardList, Navigation, XCircle, Loader2, Wallet, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
@@ -11,13 +11,51 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { AppointmentStatusBadge } from "./StatusBadge";
 import { useCancelAppointment, type AppointmentWithNames, type AppointmentIps } from "@/lib/hooks/useAppointments";
 import { useValoresCitas } from "@/lib/hooks/usePrecios";
-import { capitalizar, diasHasta, formatFecha, formatHora, formatPesos, relativoDias } from "@/lib/format";
+import { useIniciarPago, usePagosDeCitas } from "@/lib/hooks/usePagos";
+import type { Reembolso } from "@/lib/database.types";
+import { capitalizar, diasHasta, formatFecha, formatHora, formatPesos, parseFecha, relativoDias } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-/** Una cita se puede cancelar mientras esté agendada y su fecha no haya pasado. */
-export function puedeCancelar(a: Pick<AppointmentWithNames, "estado" | "fecha">) {
-  return a.estado === "agendada" && diasHasta(a.fecha) >= 0;
+/** Horas que faltan para la cita (negativo si ya pasó). */
+export function horasHasta(a: Pick<AppointmentWithNames, "fecha" | "hora">) {
+  const d = parseFecha(a.fecha);
+  const [h, m] = a.hora.split(":").map(Number);
+  d.setHours(h, m);
+  return (d.getTime() - Date.now()) / 3_600_000;
 }
+
+/** El particular puede cancelar una cita agendada hasta 12 horas antes (la base de datos aplica la misma regla). */
+export const HORAS_MIN_CANCELACION = 12;
+export function puedeCancelar(a: Pick<AppointmentWithNames, "estado" | "fecha" | "hora">) {
+  return a.estado === "agendada" && horasHasta(a) >= HORAS_MIN_CANCELACION;
+}
+
+/** Botón para pagar una reserva pendiente: crea una nueva página de pago de Rapyd. */
+export function PagarReservaButton({ appointmentId, monto, size = "sm" }: { appointmentId: string; monto?: number; size?: "sm" | "default" }) {
+  const iniciar = useIniciarPago();
+  return (
+    <Button
+      size={size}
+      disabled={iniciar.isPending}
+      onClick={() =>
+        iniciar.mutate(
+          { appointment_id: appointmentId },
+          { onSuccess: ({ redirect_url }) => window.location.assign(redirect_url), onError: (err) => toast.error(err.message) },
+        )
+      }
+    >
+      {iniciar.isPending ? <Loader2 className="animate-spin" /> : <CreditCard />} Pagar{monto != null ? ` ${formatPesos(monto)}` : ""}
+    </Button>
+  );
+}
+
+const REEMBOLSO_TEXTO: Record<Reembolso["estado"], string> = {
+  solicitado: "Solicitado: el administrador lo está revisando",
+  en_proceso: "En proceso: puede tardar unos días hábiles",
+  completado: "Completado",
+  fallido: "En revisión: hubo un problema y el administrador lo está gestionando",
+  denegado: "No aprobado",
+};
 
 /** Enlace a Google Maps: coordenadas de la IPS si existen, si no la dirección. */
 export function ubicacionUrl(ips: AppointmentIps | null, ciudad?: string): string | null {
@@ -57,6 +95,9 @@ export function AppointmentDetailDialog({
   const mapa = a ? ubicacionUrl(a.ips, a.ciudad) : null;
   const { data: valores } = useValoresCitas(!!a);
   const valor = a ? valores?.get(a.id) : undefined;
+  const { data: pagos } = usePagosDeCitas(!!a);
+  const pago = a ? pagos?.get(a.id) : undefined;
+  const futura = !!a && horasHasta(a) > 0;
   return (
     <Dialog open={!!a} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
@@ -92,9 +133,20 @@ export function AppointmentDetailDialog({
               )}
             </dl>
 
-            {a.estado === "agendada" && diasHasta(a.fecha) >= 0 && (
+            {a.estado === "agendada" && futura && (
               <p className="rounded-lg bg-info-soft px-3 py-2 text-[13px] text-info-foreground">
                 Llega 15 minutos antes y lleva tu documento de identidad.
+                {!puedeCancelar(a) && pago && ` Ya no se puede cancelar: faltan menos de ${HORAS_MIN_CANCELACION} horas.`}
+              </p>
+            )}
+            {a.estado === "pendiente_pago" && pago && (
+              <p className="rounded-lg bg-warning-soft px-3 py-2 text-[13px] text-warning-foreground">
+                El horario está apartado hasta las {formatHora(new Date(pago.expira_at).toTimeString().slice(0, 5))}. Si no se paga a tiempo, se libera.
+              </p>
+            )}
+            {pago?.reembolso && (
+              <p className="rounded-lg border px-3 py-2 text-[13px]">
+                <span className="font-semibold">Reembolso de {formatPesos(pago.monto)}:</span> {REEMBOLSO_TEXTO[pago.reembolso.estado]}
               </p>
             )}
 
@@ -103,6 +155,8 @@ export function AppointmentDetailDialog({
                 <Button variant="destructive-outline" onClick={() => onRequestCancel(a)}>
                   <XCircle /> Cancelar cita
                 </Button>
+              ) : a.estado === "pendiente_pago" ? (
+                <PagarReservaButton appointmentId={a.id} monto={pago?.monto} size="default" />
               ) : <span className="hidden sm:block" />}
               {mapa && (
                 <a href={mapa} target="_blank" rel="noopener noreferrer" className={buttonVariants()}>
@@ -128,6 +182,8 @@ export function CancelAppointmentDialog({
   onCancelled?: () => void;
 }) {
   const cancel = useCancelAppointment();
+  const { data: pagos } = usePagosDeCitas(!!a);
+  const pagado = a ? pagos?.get(a.id)?.estado === "aprobado" : false;
 
   const confirmar = (e: React.MouseEvent) => {
     e.preventDefault(); // mantener el diálogo abierto mientras se procesa
@@ -165,6 +221,7 @@ export function CancelAppointmentDialog({
                     <strong className="text-foreground">{formatFecha(a.fecha)}</strong> a las{" "}
                     <strong className="text-foreground">{formatHora(a.hora)}</strong> en {a.ips?.nombre ?? "la IPS"}.
                   </p>
+                  {pagado && <p>Te devolveremos el valor total pagado. El administrador revisa el reembolso y, una vez aprobado, puede tardar unos días hábiles en verse en tu medio de pago.</p>}
                   <p>Esta acción no se puede deshacer. Si lo necesitas, podrás solicitar una nueva cita.</p>
                 </div>
               </AlertDialogDescription>

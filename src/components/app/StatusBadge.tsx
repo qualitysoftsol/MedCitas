@@ -1,5 +1,5 @@
 import {
-  CalendarCheck, CheckCircle2, XCircle, FileCheck2, Hourglass, ShieldCheck, ShieldAlert, ShieldX,
+  CalendarCheck, CheckCircle2, XCircle, FileCheck2, Hourglass, ShieldCheck, ShieldAlert, ShieldX, CreditCard, TimerOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Appointment, Resultado } from "@/lib/database.types";
@@ -9,9 +9,11 @@ interface StatusDef { label: string; tone: Tone; icon: React.ComponentType<{ cla
 
 // Cada estado combina color + icono + texto: nunca se comunica solo con color.
 export const APPOINTMENT_STATUS: Record<Appointment["estado"], StatusDef> = {
+  pendiente_pago: { label: "Pendiente de pago", tone: "warning", icon: CreditCard },
   agendada: { label: "Agendada", tone: "success", icon: CalendarCheck },
   atendida: { label: "Atendida", tone: "info", icon: CheckCircle2 },
   cancelada: { label: "Cancelada", tone: "danger", icon: XCircle },
+  expirada: { label: "Reserva vencida", tone: "neutral", icon: TimerOff },
 };
 
 export type ResultadoEstado = "disponible" | "procesamiento";

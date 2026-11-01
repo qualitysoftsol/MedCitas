@@ -203,3 +203,73 @@ app calls a function that does not exist and the request fails with a 404.
 The function answers identically whether or not the email belongs to a registered account, so
 it cannot be used to discover which addresses exist. Recovery links expire after 1 hour and
 work only once.
+
+---
+
+## Step 14: Prices, commissions and online payments (Rapyd)
+
+Run these in order. Each migration goes in its **own** SQL Editor query.
+
+### 14a. Migrations
+
+1. `migrations/016_precios_comisiones.sql`: IPS prices and admin commissions.
+2. `migrations/017_estados_pago.sql`: new appointment states. Run it alone.
+3. `migrations/018_pagos_facturacion.sql`: payments, refunds, monthly invoices and IPS payouts.
+   The last block schedules `pg_cron` to release unpaid reservations every minute. If it fails,
+   enable **Database → Extensions → pg_cron** and run only that block again.
+
+> Deploy the frontend **after** these migrations. Before 016 no slot shows as available, and
+> after 018 particulares can only book through the `rapyd-checkout` function.
+
+### 14b. Edge Function secrets
+
+**Edge Functions → Secrets**:
+
+| Secret | Value |
+| --- | --- |
+| `RAPYD_ACCESS_KEY` | Access key from Rapyd Client Portal → Developers |
+| `RAPYD_SECRET_KEY` | Secret key from the same page. Never put it in the frontend or the repo |
+| `RAPYD_BASE_URL` | `https://sandboxapi.rapyd.net` for testing, `https://api.rapyd.net` in production |
+| `RAPYD_WEBHOOK_URL` | `https://qjujxdgtmmubvfrfrtax.supabase.co/functions/v1/rapyd-webhook`, exactly as configured in Rapyd |
+| `APP_URL` | The app's address, e.g. `http://localhost:8080` (no trailing slash). `rapyd-retorno` redirects users here after paying |
+| `RAPYD_PAYMENT_METHODS` | Optional. Comma-separated payment method types (see 14d) |
+
+### 14c. Deploy the functions
+
+```
+supabase functions deploy rapyd-checkout
+supabase functions deploy rapyd-reembolso
+supabase functions deploy rapyd-webhook --no-verify-jwt
+supabase functions deploy rapyd-retorno --no-verify-jwt
+```
+
+`rapyd-webhook` must skip JWT verification because Rapyd, not a user, calls it. It
+authenticates each request with Rapyd's signature instead. `rapyd-retorno` is where Rapyd sends
+the user back (Rapyd rejects localhost URLs). It only redirects to `APP_URL/app/particular/pago`.
+
+### 14d. Configure Rapyd
+
+1. **Client Portal → Developers → Webhooks**: set the URL to the value of
+   `RAPYD_WEBHOOK_URL` and enable at least `Payment Completed`, `Payment Failed`,
+   `Payment Expired`, `Refund Completed`, `Refund Failed` and `Refund Rejected`.
+2. List the payment methods your account has in Colombia:
+
+   ```
+   $env:RAPYD_ACCESS_KEY="..."; $env:RAPYD_SECRET_KEY="..."; node supabase/scripts/rapyd-metodos.mjs
+   ```
+
+   The script prints the methods that confirm instantly and support refunds. Copy the suggested
+   value into `RAPYD_PAYMENT_METHODS`. Without it, checkout shows cards, bank redirects and
+   e-wallets.
+
+### 14e. How it works
+
+- **Particular:** booking reserves the slot for 30 minutes and redirects to Rapyd's hosted
+  page. The webhook confirms the appointment and sends the email. Unpaid reservations expire
+  and free the slot. A paid appointment can be cancelled up to 12 hours before; that creates
+  a full refund request, which the admin approves in **Facturación → Reembolsos**.
+- **Empresa:** books as before, without paying online. The admin generates each month's
+  invoices in **Facturación → Facturas de empresas**, can upload the electronic invoice PDF and
+  marks it paid. The empresa sees its invoices in **Facturas**.
+- **IPS:** in **Facturación → Pagos a IPS** the admin calculates what each IPS is owed for all
+  its appointments of the month, at base price, and marks it paid after transferring.

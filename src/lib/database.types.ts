@@ -65,7 +65,7 @@ export type Database = {
           hora: string
           ciudad: string
           servicio: string
-          estado: 'agendada' | 'atendida' | 'cancelada'
+          estado: 'pendiente_pago' | 'agendada' | 'atendida' | 'cancelada' | 'expirada'
           created_at: string
         }
         Insert: Omit<Database['public']['Tables']['appointments']['Row'], 'id' | 'created_at' | 'estado'>
@@ -134,6 +134,86 @@ export type Database = {
         Insert: { ips_id?: string | null; servicio_id?: string | null; rol?: 'empresa' | 'particular' | null; porcentaje: number }
         Update: Partial<{ porcentaje: number }>
       }
+      // Pagos, reembolsos, facturas y liquidaciones (migración 018): el navegador
+      // solo los lee; los escriben las Edge Functions y las funciones SQL.
+      pagos: {
+        Row: {
+          id: string
+          appointment_id: string
+          solicitante_id: string
+          monto: number
+          moneda: string
+          estado: 'pendiente' | 'aprobado' | 'rechazado' | 'expirado'
+          expira_at: string
+          rapyd_checkout_id: string | null
+          rapyd_payment_id: string | null
+          metodo: string | null
+          detalle: string | null
+          aprobado_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: never
+        Update: never
+      }
+      reembolsos: {
+        Row: {
+          id: string
+          pago_id: string
+          monto: number
+          motivo: string
+          estado: 'solicitado' | 'en_proceso' | 'completado' | 'fallido' | 'denegado'
+          rapyd_refund_id: string | null
+          detalle: string | null
+          resuelto_por: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: never
+        Update: never
+      }
+      facturas_empresa: {
+        Row: {
+          id: string
+          empresa_id: string
+          periodo: string
+          num_citas: number
+          total: number
+          estado: 'pendiente' | 'pagada'
+          numero: string | null
+          pdf_path: string | null
+          pagada_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: never
+        Update: Partial<{ estado: 'pendiente' | 'pagada'; numero: string | null; pdf_path: string | null; pagada_at: string | null; updated_at: string }>
+      }
+      facturas_empresa_items: {
+        Row: { appointment_id: string; factura_id: string; valor: number }
+        Insert: never
+        Update: never
+      }
+      liquidaciones_ips: {
+        Row: {
+          id: string
+          ips_id: string
+          periodo: string
+          num_citas: number
+          total: number
+          estado: 'pendiente' | 'pagada'
+          pagada_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: never
+        Update: Partial<{ estado: 'pendiente' | 'pagada'; pagada_at: string | null; updated_at: string }>
+      }
+      liquidaciones_ips_items: {
+        Row: { appointment_id: string; liquidacion_id: string; valor: number }
+        Insert: never
+        Update: never
+      }
     }
   }
 }
@@ -146,6 +226,10 @@ export type Resultado = Database['public']['Tables']['resultados']['Row']
 export type Notification = Database['public']['Tables']['notifications']['Row']
 export type PrecioIps = Database['public']['Tables']['precios_ips']['Row']
 export type Comision = Database['public']['Tables']['comisiones']['Row']
+export type Pago = Database['public']['Tables']['pagos']['Row']
+export type Reembolso = Database['public']['Tables']['reembolsos']['Row']
+export type FacturaEmpresa = Database['public']['Tables']['facturas_empresa']['Row']
+export type LiquidacionIps = Database['public']['Tables']['liquidaciones_ips']['Row']
 export type Clasificacion = Database['public']['Tables']['clasificaciones']['Row']
 export type TipoExamen = Database['public']['Tables']['tipos_examen']['Row']
 

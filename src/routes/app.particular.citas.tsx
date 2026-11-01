@@ -6,6 +6,7 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import { useAppointments, type AppointmentWithNames } from "@/lib/hooks/useAppointments";
 import { useValoresCitas } from "@/lib/hooks/usePrecios";
+import { usePagosDeCitas } from "@/lib/hooks/usePagos";
 import { Card } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +16,7 @@ import { PageHeader } from "@/components/app/PageHeader";
 import { StatCard } from "@/components/app/StatCard";
 import { AppointmentStatusBadge } from "@/components/app/StatusBadge";
 import { EmptyState, ErrorState } from "@/components/app/EmptyState";
-import { AppointmentDetailDialog, CancelAppointmentDialog, puedeCancelar } from "@/components/app/AppointmentDialogs";
+import { AppointmentDetailDialog, CancelAppointmentDialog, PagarReservaButton, puedeCancelar } from "@/components/app/AppointmentDialogs";
 import { capitalizar, diasHasta, fechaPartes, formatFecha, formatHora, formatPesos, formatValor } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -23,20 +24,23 @@ export const Route = createFileRoute("/app/particular/citas")({
   component: ParticularCitas,
 });
 
-type Filtro = "todas" | "agendada" | "atendida" | "cancelada";
+type Filtro = "todas" | "pendiente_pago" | "agendada" | "atendida" | "cancelada";
 const PAGE_SIZE = 8;
 
 const FILTROS: { id: Filtro; label: string }[] = [
   { id: "todas", label: "Todas" },
+  { id: "pendiente_pago", label: "Por pagar" },
   { id: "agendada", label: "Agendadas" },
   { id: "atendida", label: "Atendidas" },
   { id: "cancelada", label: "Canceladas" },
 ];
 
-/** Próximas citas agendadas primero (la más cercana arriba); el resto, de la más reciente a la más antigua. */
+/** Reservas por pagar y próximas citas primero (la más cercana arriba); el resto, de la más reciente a la más antigua. */
 function ordenar(list: AppointmentWithNames[]) {
   const key = (a: AppointmentWithNames) => `${a.fecha}T${a.hora}`;
-  const proximas = list.filter((a) => a.estado === "agendada" && diasHasta(a.fecha) >= 0).sort((x, y) => key(x).localeCompare(key(y)));
+  const proximas = list
+    .filter((a) => a.estado === "pendiente_pago" || (a.estado === "agendada" && diasHasta(a.fecha) >= 0))
+    .sort((x, y) => key(x).localeCompare(key(y)));
   const resto = list.filter((a) => !proximas.includes(a)).sort((x, y) => key(y).localeCompare(key(x)));
   return [...proximas, ...resto];
 }
@@ -51,8 +55,11 @@ function ParticularCitas() {
   const [detalle, setDetalle] = useState<AppointmentWithNames | null>(null);
   const [cancelar, setCancelar] = useState<AppointmentWithNames | null>(null);
 
+  const { data: pagos } = usePagosDeCitas(!!profile);
+
   const conteo = useMemo(() => ({
     todas: citas.length,
+    pendiente_pago: citas.filter((a) => a.estado === "pendiente_pago").length,
     agendada: citas.filter((a) => a.estado === "agendada").length,
     atendida: citas.filter((a) => a.estado === "atendida").length,
     cancelada: citas.filter((a) => a.estado === "cancelada").length,
@@ -71,6 +78,14 @@ function ParticularCitas() {
   const totalPages = Math.max(1, Math.ceil(filtradas.length / PAGE_SIZE));
   const current = Math.min(page, totalPages);
   const visibles = filtradas.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
+
+  // Acción secundaria de cada cita: cancelar (hasta 12 h antes) o pagar la reserva pendiente.
+  const accion = (a: AppointmentWithNames) =>
+    puedeCancelar(a) ? (
+      <Button size="sm" variant="destructive-outline" onClick={() => setCancelar(a)}>Cancelar</Button>
+    ) : a.estado === "pendiente_pago" ? (
+      <PagarReservaButton appointmentId={a.id} monto={pagos?.get(a.id)?.monto} />
+    ) : null;
 
   const cambiarFiltro = (f: Filtro) => { setFiltro(f); setPage(1); };
   const limpiar = () => { setFiltro("todas"); setBusqueda(""); setPage(1); };
@@ -100,7 +115,7 @@ function ParticularCitas() {
       <Card className="overflow-hidden">
         <div className="flex flex-col gap-3 border-b p-4 md:p-5 lg:flex-row lg:items-center lg:justify-between">
           <div role="group" aria-label="Filtrar por estado" className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 lg:pb-0">
-            {FILTROS.map((f) => (
+            {FILTROS.filter((f) => f.id !== "pendiente_pago" || conteo.pendiente_pago > 0 || filtro === f.id).map((f) => (
               <button
                 key={f.id}
                 aria-pressed={filtro === f.id}
@@ -188,11 +203,7 @@ function ParticularCitas() {
                           <Button size="sm" variant="outline" onClick={() => setDetalle(a)}>
                             <Eye /> Ver detalles
                           </Button>
-                          {puedeCancelar(a) && (
-                            <Button size="sm" variant="destructive-outline" onClick={() => setCancelar(a)}>
-                              Cancelar
-                            </Button>
-                          )}
+                          {accion(a)}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -235,14 +246,10 @@ function ParticularCitas() {
                       </div>
                     </div>
                     <div className="mt-3 grid grid-cols-2 gap-2">
-                      <Button variant="outline" size="sm" onClick={() => setDetalle(a)} className={cn(!puedeCancelar(a) && "col-span-2")}>
+                      <Button variant="outline" size="sm" onClick={() => setDetalle(a)} className={cn(!accion(a) && "col-span-2")}>
                         <Eye /> Ver detalles
                       </Button>
-                      {puedeCancelar(a) && (
-                        <Button variant="destructive-outline" size="sm" onClick={() => setCancelar(a)}>
-                          Cancelar
-                        </Button>
-                      )}
+                      {accion(a)}
                     </div>
                   </li>
                 );

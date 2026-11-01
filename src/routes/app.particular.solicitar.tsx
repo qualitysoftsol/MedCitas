@@ -1,22 +1,21 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  CalendarPlus, Check, ClipboardList, MapPin, Building2, CalendarClock, CircleCheckBig, Info, Loader2, IdCard, UserRound, House, Navigation, Wallet,
+  CalendarPlus, ClipboardList, MapPin, Building2, CalendarClock, CircleCheckBig, Info, Loader2, IdCard, UserRound, Wallet, CreditCard,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { DEPARTAMENTOS } from "@/lib/colombia";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/app/PageHeader";
 import { FormField, IconInput } from "@/components/app/FormField";
 import { useAuth } from "@/lib/auth-context";
 import { useAvailableSlots } from "@/lib/hooks/useSlots";
-import { useBookAppointment } from "@/lib/hooks/useAppointments";
+import { PagoError, useIniciarPago } from "@/lib/hooks/usePagos";
 import { useTiposExamen } from "@/lib/hooks/useCatalogos";
-import { esErrorSinPrecio } from "@/lib/hooks/usePrecios";
 import { capitalizar, fechaPartes, formatFecha, formatFechaCorta, formatHora, formatPesos, hoyISO } from "@/lib/format";
-import { ConfirmRow, Resumen, StepHeading, Stepper, SuccessCard, TotalRow, WizardNav, type WizardStep } from "@/components/solicitar/WizardParts";
+import { ConfirmRow, Resumen, StepHeading, Stepper, TotalRow, WizardNav, type WizardStep } from "@/components/solicitar/WizardParts";
 import { HorarioPicker, IpsStep, TipoExamenPicker, UbicacionStep } from "@/components/solicitar/Steps";
 import { esFuturo, soloDigitos, useIpsSearch, type LatLng } from "@/components/solicitar/useIpsSearch";
 
@@ -33,13 +32,11 @@ const STEPS: readonly WizardStep[] = [
 ];
 const TOTAL = STEPS.length;
 
-interface CitaAgendada { fecha: string; hora: string; ips: string; tipo: string; servicio: string; direccion: string | null; ciudad: string; valor: number | null }
 
 function ParticularSolicitar() {
   const { profile } = useAuth();
   const [step, setStep] = useState(1);
   const [maxStep, setMaxStep] = useState(1);
-  const [done, setDone] = useState<CitaAgendada | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
 
   const [cedula, setCedula] = useState(profile?.cedula ?? "");
@@ -56,7 +53,7 @@ function ParticularSolicitar() {
   const [bookError, setBookError] = useState<string | null>(null);
 
   const qc = useQueryClient();
-  const bookAppointment = useBookAppointment();
+  const iniciarPago = useIniciarPago();
   const { data: tiposExamen = [], isLoading: tiposLoading } = useTiposExamen();
   const tiposDisponibles = useMemo(() => tiposExamen.filter((t) => t.roles_permitidos.includes("particular")), [tiposExamen]);
 
@@ -88,7 +85,7 @@ function ParticularSolicitar() {
     if (firstRender.current) { firstRender.current = false; return; }
     headingRef.current?.focus({ preventScroll: true });
     window.scrollTo({ top: 0, behavior: "smooth" });
-  }, [step, done]);
+  }, [step]);
 
   const next = () => {
     if (step === 1) setTouched1(true);
@@ -107,75 +104,27 @@ function ParticularSolicitar() {
   };
   const elegirIps = (id: string) => { selectIps(id); setMaxStep(3); goTo(4); };
 
+  // Aparta el horario 30 minutos y lleva al usuario a la página de pago de Rapyd.
+  // La confirmación se muestra al volver, en /app/particular/pago.
   const submit = () => {
     setBookError(null);
     if (!slotSel || !profile) return;
-    bookAppointment.mutate({
-      slot_id: slotSel.id,
-      ips_id: slotSel.ips_id,
-      solicitante_id: profile.id,
-      empleado_nombre: profile.nombre,
-      empleado_cedula: cedula,
-      tipo_examen: tipoExamen,
-      fecha: slotSel.fecha,
-      hora: slotSel.hora,
-      ciudad: slotSel.ciudad,
-      servicio: slotSel.servicio,
-    }, {
-      onSuccess: () => {
-        toast.success("Cita agendada");
-        setDone({
-          fecha: slotSel.fecha, hora: slotSel.hora, ips: ipsSel?.nombre ?? "", tipo: tipoExamen,
-          servicio: slotSel.servicio, direccion: ipsSel?.direccion ?? null, ciudad: slotSel.ciudad, valor: valorSel,
-        });
+    iniciarPago.mutate(
+      { slot_id: slotSel.id, empleado_cedula: cedula, tipo_examen: tipoExamen },
+      {
+        onSuccess: ({ redirect_url }) => window.location.assign(redirect_url),
+        onError: (err) => {
+          const codigo = err instanceof PagoError ? err.codigo : undefined;
+          const msg = err.message.includes("Failed to fetch") ? "Sin conexión. Revisa tu internet e inténtalo de nuevo." : err.message;
+          setBookError(msg);
+          toast.error(msg);
+          if (codigo === "HORARIO_TOMADO" || codigo === "SERVICIO_SIN_PRECIO") {
+            setSelectedSlot(null); void refetchSlots(); void qc.invalidateQueries({ queryKey: ["precios-servicios"] }); setStep(4);
+          }
+        },
       },
-      onError: (err: any) => {
-        const tomado = err?.code === "23505" || /duplicate|unique/i.test(err?.message ?? "");
-        const sinPrecio = esErrorSinPrecio(err);
-        const msg = tomado
-          ? "Ese horario ya no está disponible. Elige otro, por favor."
-          : sinPrecio
-            ? "Ese servicio ya no tiene precio en esta IPS. Elige otro horario, por favor."
-            : err?.message?.includes("Failed to fetch")
-              ? "Sin conexión. Revisa tu internet e inténtalo de nuevo."
-              : "No pudimos agendar la cita. Inténtalo de nuevo.";
-        setBookError(msg);
-        toast.error(msg);
-        if (tomado || sinPrecio) { setSelectedSlot(null); void refetchSlots(); void qc.invalidateQueries({ queryKey: ["precios-servicios"] }); setStep(4); }
-      },
-    });
-  };
-
-  const reiniciar = () => {
-    setDone(null); setSelectedIps(null); setSelectedSlot(null); setSelectedFecha(null); setStep(1); setMaxStep(1); setTouched1(false);
-  };
-
-  if (done) {
-    const mapa = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${done.ips}, ${done.direccion ?? ""}, ${done.ciudad}, Colombia`)}`;
-    return (
-      <SuccessCard headingRef={headingRef} title="¡Tu cita quedó agendada!" subtitle="Te enviamos una notificación con los detalles.">
-        <dl className="space-y-3 rounded-xl border p-4 text-sm">
-          <div className="flex justify-between gap-4"><dt className="text-muted-foreground">Examen</dt><dd className="text-right font-medium">Examen de {done.tipo.toLowerCase()} · {done.servicio}</dd></div>
-          <div className="flex justify-between gap-4"><dt className="text-muted-foreground">Fecha</dt><dd className="text-right font-medium">{capitalizar(formatFecha(done.fecha))}</dd></div>
-          <div className="flex justify-between gap-4"><dt className="text-muted-foreground">Hora</dt><dd className="text-right font-medium">{formatHora(done.hora)}</dd></div>
-          <div className="flex justify-between gap-4"><dt className="text-muted-foreground">IPS</dt><dd className="text-right font-medium">{done.ips}</dd></div>
-          {done.valor != null && (
-            <div className="flex justify-between gap-4 border-t pt-3"><dt className="font-semibold">Valor total</dt><dd className="text-right text-base font-bold tabular-nums">{formatPesos(done.valor)}</dd></div>
-          )}
-        </dl>
-        <div className="grid gap-2 sm:grid-cols-2">
-          <Link to="/app/particular/citas" className={buttonVariants({ size: "lg" })}><CalendarClock /> Ver mis citas</Link>
-          <a href={mapa} target="_blank" rel="noopener noreferrer" className={buttonVariants({ variant: "outline", size: "lg" })}>
-            <Navigation /> Ver ubicación<span className="sr-only"> (pestaña nueva)</span>
-          </a>
-        </div>
-        <div className="flex justify-center gap-4 pt-1">
-          <Link to="/app/particular" className={buttonVariants({ variant: "link" })}><House className="size-4" /> Ir al inicio</Link>
-          <Button variant="link" onClick={reiniciar}><CalendarPlus className="size-4" /> Agendar otra cita</Button>
-        </div>
-      </SuccessCard>
     );
-  }
+  };
 
   const current = STEPS[step - 1];
   const resumenRows = [
@@ -291,7 +240,7 @@ function ParticularSolicitar() {
               </dl>
               {valorSel != null && <TotalRow valor={valorSel} detalle={slotSel.servicio} />}
               <p className="flex items-start gap-2 rounded-lg bg-info-soft px-3 py-2 text-[13px] text-info-foreground">
-                <Info className="mt-0.5 size-4 shrink-0" aria-hidden /> Recibirás una notificación de confirmación. Llega 15 minutos antes con tu documento de identidad.
+                <Info className="mt-0.5 size-4 shrink-0" aria-hidden /> Al continuar te llevamos a la página segura de pago. Apartamos el horario por 30 minutos; la cita queda confirmada cuando se apruebe el pago. Puedes cancelarla con reembolso total hasta 12 horas antes.
               </p>
               {bookError && <p role="alert" className="rounded-lg bg-danger-soft px-3 py-2 text-sm font-medium text-danger-foreground">{bookError}</p>}
             </CardContent>
@@ -306,8 +255,8 @@ function ParticularSolicitar() {
         onNext={next}
         nextDisabled={step === 3 && !selectedIps}
         finalAction={
-          <Button onClick={submit} size="lg" disabled={bookAppointment.isPending || !slotSel}>
-            {bookAppointment.isPending ? <><Loader2 className="animate-spin" /> Agendando…</> : <><Check /> Confirmar cita</>}
+          <Button onClick={submit} size="lg" disabled={iniciarPago.isPending || !slotSel}>
+            {iniciarPago.isPending ? <><Loader2 className="animate-spin" /> Conectando con la pasarela…</> : <><CreditCard /> Pagar{valorSel != null ? ` ${formatPesos(valorSel)}` : ""}</>}
           </Button>
         }
       />

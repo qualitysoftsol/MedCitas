@@ -28,6 +28,12 @@ export function formatFecha(fecha: string): string {
   return `${d.getDate()} de ${MESES[d.getMonth()]} de ${d.getFullYear()}`;
 }
 
+/** 2026-08-01 → "Agosto de 2026" */
+export function formatMes(fecha: string): string {
+  const d = parseFecha(fecha);
+  return `${MESES[d.getMonth()].charAt(0).toUpperCase()}${MESES[d.getMonth()].slice(1)} de ${d.getFullYear()}`;
+}
+
 /** 2026-08-07 → "vie, 7 ago 2026" */
 export function formatFechaCorta(fecha: string): string {
   const d = parseFecha(fecha);

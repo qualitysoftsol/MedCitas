@@ -18,15 +18,18 @@ import { Route as AppParticularIndexRouteImport } from './routes/app.particular.
 import { Route as AppAdminIndexRouteImport } from './routes/app.admin.index'
 import { Route as AppParticularSolicitarRouteImport } from './routes/app.particular.solicitar'
 import { Route as AppParticularResultadosRouteImport } from './routes/app.particular.resultados'
+import { Route as AppParticularPagoRouteImport } from './routes/app.particular.pago'
 import { Route as AppParticularCitasRouteImport } from './routes/app.particular.citas'
 import { Route as AppIpsResultadosRouteImport } from './routes/app.ips.resultados'
 import { Route as AppIpsCitasRouteImport } from './routes/app.ips.citas'
 import { Route as AppIpsCalendarioRouteImport } from './routes/app.ips.calendario'
 import { Route as AppEmpresaSolicitarRouteImport } from './routes/app.empresa.solicitar'
 import { Route as AppEmpresaResultadosRouteImport } from './routes/app.empresa.resultados'
+import { Route as AppEmpresaFacturasRouteImport } from './routes/app.empresa.facturas'
 import { Route as AppEmpresaCitasRouteImport } from './routes/app.empresa.citas'
 import { Route as AppAdminRegistrarRouteImport } from './routes/app.admin.registrar'
 import { Route as AppAdminMenusRouteImport } from './routes/app.admin.menus'
+import { Route as AppAdminFacturacionRouteImport } from './routes/app.admin.facturacion'
 import { Route as AppAdminComisionesRouteImport } from './routes/app.admin.comisiones'
 import { Route as AppAdminCatalogosRouteImport } from './routes/app.admin.catalogos'
 
@@ -75,6 +78,11 @@ const AppParticularResultadosRoute = AppParticularResultadosRouteImport.update({
   path: '/particular/resultados',
   getParentRoute: () => AppRoute,
 } as any)
+const AppParticularPagoRoute = AppParticularPagoRouteImport.update({
+  id: '/particular/pago',
+  path: '/particular/pago',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppParticularCitasRoute = AppParticularCitasRouteImport.update({
   id: '/particular/citas',
   path: '/particular/citas',
@@ -105,6 +113,11 @@ const AppEmpresaResultadosRoute = AppEmpresaResultadosRouteImport.update({
   path: '/empresa/resultados',
   getParentRoute: () => AppRoute,
 } as any)
+const AppEmpresaFacturasRoute = AppEmpresaFacturasRouteImport.update({
+  id: '/empresa/facturas',
+  path: '/empresa/facturas',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppEmpresaCitasRoute = AppEmpresaCitasRouteImport.update({
   id: '/empresa/citas',
   path: '/empresa/citas',
@@ -118,6 +131,11 @@ const AppAdminRegistrarRoute = AppAdminRegistrarRouteImport.update({
 const AppAdminMenusRoute = AppAdminMenusRouteImport.update({
   id: '/admin/menus',
   path: '/admin/menus',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAdminFacturacionRoute = AppAdminFacturacionRouteImport.update({
+  id: '/admin/facturacion',
+  path: '/admin/facturacion',
   getParentRoute: () => AppRoute,
 } as any)
 const AppAdminComisionesRoute = AppAdminComisionesRouteImport.update({
@@ -139,15 +157,18 @@ export interface FileRoutesByFullPath {
   '/app/perfil': typeof AppPerfilRoute
   '/app/admin/catalogos': typeof AppAdminCatalogosRoute
   '/app/admin/comisiones': typeof AppAdminComisionesRoute
+  '/app/admin/facturacion': typeof AppAdminFacturacionRoute
   '/app/admin/menus': typeof AppAdminMenusRoute
   '/app/admin/registrar': typeof AppAdminRegistrarRoute
   '/app/empresa/citas': typeof AppEmpresaCitasRoute
+  '/app/empresa/facturas': typeof AppEmpresaFacturasRoute
   '/app/empresa/resultados': typeof AppEmpresaResultadosRoute
   '/app/empresa/solicitar': typeof AppEmpresaSolicitarRoute
   '/app/ips/calendario': typeof AppIpsCalendarioRoute
   '/app/ips/citas': typeof AppIpsCitasRoute
   '/app/ips/resultados': typeof AppIpsResultadosRoute
   '/app/particular/citas': typeof AppParticularCitasRoute
+  '/app/particular/pago': typeof AppParticularPagoRoute
   '/app/particular/resultados': typeof AppParticularResultadosRoute
   '/app/particular/solicitar': typeof AppParticularSolicitarRoute
   '/app/admin/': typeof AppAdminIndexRoute
@@ -161,15 +182,18 @@ export interface FileRoutesByTo {
   '/app/perfil': typeof AppPerfilRoute
   '/app/admin/catalogos': typeof AppAdminCatalogosRoute
   '/app/admin/comisiones': typeof AppAdminComisionesRoute
+  '/app/admin/facturacion': typeof AppAdminFacturacionRoute
   '/app/admin/menus': typeof AppAdminMenusRoute
   '/app/admin/registrar': typeof AppAdminRegistrarRoute
   '/app/empresa/citas': typeof AppEmpresaCitasRoute
+  '/app/empresa/facturas': typeof AppEmpresaFacturasRoute
   '/app/empresa/resultados': typeof AppEmpresaResultadosRoute
   '/app/empresa/solicitar': typeof AppEmpresaSolicitarRoute
   '/app/ips/calendario': typeof AppIpsCalendarioRoute
   '/app/ips/citas': typeof AppIpsCitasRoute
   '/app/ips/resultados': typeof AppIpsResultadosRoute
   '/app/particular/citas': typeof AppParticularCitasRoute
+  '/app/particular/pago': typeof AppParticularPagoRoute
   '/app/particular/resultados': typeof AppParticularResultadosRoute
   '/app/particular/solicitar': typeof AppParticularSolicitarRoute
   '/app/admin': typeof AppAdminIndexRoute
@@ -184,15 +208,18 @@ export interface FileRoutesById {
   '/app/perfil': typeof AppPerfilRoute
   '/app/admin/catalogos': typeof AppAdminCatalogosRoute
   '/app/admin/comisiones': typeof AppAdminComisionesRoute
+  '/app/admin/facturacion': typeof AppAdminFacturacionRoute
   '/app/admin/menus': typeof AppAdminMenusRoute
   '/app/admin/registrar': typeof AppAdminRegistrarRoute
   '/app/empresa/citas': typeof AppEmpresaCitasRoute
+  '/app/empresa/facturas': typeof AppEmpresaFacturasRoute
   '/app/empresa/resultados': typeof AppEmpresaResultadosRoute
   '/app/empresa/solicitar': typeof AppEmpresaSolicitarRoute
   '/app/ips/calendario': typeof AppIpsCalendarioRoute
   '/app/ips/citas': typeof AppIpsCitasRoute
   '/app/ips/resultados': typeof AppIpsResultadosRoute
   '/app/particular/citas': typeof AppParticularCitasRoute
+  '/app/particular/pago': typeof AppParticularPagoRoute
   '/app/particular/resultados': typeof AppParticularResultadosRoute
   '/app/particular/solicitar': typeof AppParticularSolicitarRoute
   '/app/admin/': typeof AppAdminIndexRoute
@@ -208,15 +235,18 @@ export interface FileRouteTypes {
     | '/app/perfil'
     | '/app/admin/catalogos'
     | '/app/admin/comisiones'
+    | '/app/admin/facturacion'
     | '/app/admin/menus'
     | '/app/admin/registrar'
     | '/app/empresa/citas'
+    | '/app/empresa/facturas'
     | '/app/empresa/resultados'
     | '/app/empresa/solicitar'
     | '/app/ips/calendario'
     | '/app/ips/citas'
     | '/app/ips/resultados'
     | '/app/particular/citas'
+    | '/app/particular/pago'
     | '/app/particular/resultados'
     | '/app/particular/solicitar'
     | '/app/admin/'
@@ -230,15 +260,18 @@ export interface FileRouteTypes {
     | '/app/perfil'
     | '/app/admin/catalogos'
     | '/app/admin/comisiones'
+    | '/app/admin/facturacion'
     | '/app/admin/menus'
     | '/app/admin/registrar'
     | '/app/empresa/citas'
+    | '/app/empresa/facturas'
     | '/app/empresa/resultados'
     | '/app/empresa/solicitar'
     | '/app/ips/calendario'
     | '/app/ips/citas'
     | '/app/ips/resultados'
     | '/app/particular/citas'
+    | '/app/particular/pago'
     | '/app/particular/resultados'
     | '/app/particular/solicitar'
     | '/app/admin'
@@ -252,15 +285,18 @@ export interface FileRouteTypes {
     | '/app/perfil'
     | '/app/admin/catalogos'
     | '/app/admin/comisiones'
+    | '/app/admin/facturacion'
     | '/app/admin/menus'
     | '/app/admin/registrar'
     | '/app/empresa/citas'
+    | '/app/empresa/facturas'
     | '/app/empresa/resultados'
     | '/app/empresa/solicitar'
     | '/app/ips/calendario'
     | '/app/ips/citas'
     | '/app/ips/resultados'
     | '/app/particular/citas'
+    | '/app/particular/pago'
     | '/app/particular/resultados'
     | '/app/particular/solicitar'
     | '/app/admin/'
@@ -339,6 +375,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppParticularResultadosRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/particular/pago': {
+      id: '/app/particular/pago'
+      path: '/particular/pago'
+      fullPath: '/app/particular/pago'
+      preLoaderRoute: typeof AppParticularPagoRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/particular/citas': {
       id: '/app/particular/citas'
       path: '/particular/citas'
@@ -381,6 +424,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppEmpresaResultadosRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/empresa/facturas': {
+      id: '/app/empresa/facturas'
+      path: '/empresa/facturas'
+      fullPath: '/app/empresa/facturas'
+      preLoaderRoute: typeof AppEmpresaFacturasRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/empresa/citas': {
       id: '/app/empresa/citas'
       path: '/empresa/citas'
@@ -400,6 +450,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/menus'
       fullPath: '/app/admin/menus'
       preLoaderRoute: typeof AppAdminMenusRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/admin/facturacion': {
+      id: '/app/admin/facturacion'
+      path: '/admin/facturacion'
+      fullPath: '/app/admin/facturacion'
+      preLoaderRoute: typeof AppAdminFacturacionRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/admin/comisiones': {
@@ -423,15 +480,18 @@ interface AppRouteChildren {
   AppPerfilRoute: typeof AppPerfilRoute
   AppAdminCatalogosRoute: typeof AppAdminCatalogosRoute
   AppAdminComisionesRoute: typeof AppAdminComisionesRoute
+  AppAdminFacturacionRoute: typeof AppAdminFacturacionRoute
   AppAdminMenusRoute: typeof AppAdminMenusRoute
   AppAdminRegistrarRoute: typeof AppAdminRegistrarRoute
   AppEmpresaCitasRoute: typeof AppEmpresaCitasRoute
+  AppEmpresaFacturasRoute: typeof AppEmpresaFacturasRoute
   AppEmpresaResultadosRoute: typeof AppEmpresaResultadosRoute
   AppEmpresaSolicitarRoute: typeof AppEmpresaSolicitarRoute
   AppIpsCalendarioRoute: typeof AppIpsCalendarioRoute
   AppIpsCitasRoute: typeof AppIpsCitasRoute
   AppIpsResultadosRoute: typeof AppIpsResultadosRoute
   AppParticularCitasRoute: typeof AppParticularCitasRoute
+  AppParticularPagoRoute: typeof AppParticularPagoRoute
   AppParticularResultadosRoute: typeof AppParticularResultadosRoute
   AppParticularSolicitarRoute: typeof AppParticularSolicitarRoute
   AppAdminIndexRoute: typeof AppAdminIndexRoute
@@ -442,15 +502,18 @@ const AppRouteChildren: AppRouteChildren = {
   AppPerfilRoute: AppPerfilRoute,
   AppAdminCatalogosRoute: AppAdminCatalogosRoute,
   AppAdminComisionesRoute: AppAdminComisionesRoute,
+  AppAdminFacturacionRoute: AppAdminFacturacionRoute,
   AppAdminMenusRoute: AppAdminMenusRoute,
   AppAdminRegistrarRoute: AppAdminRegistrarRoute,
   AppEmpresaCitasRoute: AppEmpresaCitasRoute,
+  AppEmpresaFacturasRoute: AppEmpresaFacturasRoute,
   AppEmpresaResultadosRoute: AppEmpresaResultadosRoute,
   AppEmpresaSolicitarRoute: AppEmpresaSolicitarRoute,
   AppIpsCalendarioRoute: AppIpsCalendarioRoute,
   AppIpsCitasRoute: AppIpsCitasRoute,
   AppIpsResultadosRoute: AppIpsResultadosRoute,
   AppParticularCitasRoute: AppParticularCitasRoute,
+  AppParticularPagoRoute: AppParticularPagoRoute,
   AppParticularResultadosRoute: AppParticularResultadosRoute,
   AppParticularSolicitarRoute: AppParticularSolicitarRoute,
   AppAdminIndexRoute: AppAdminIndexRoute,
