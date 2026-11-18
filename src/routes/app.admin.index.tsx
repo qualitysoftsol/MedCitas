@@ -8,6 +8,12 @@ import { Badge } from "@/components/ui/badge";
 import { Building2, Stethoscope, ClipboardList, FileCheck2, User } from "lucide-react";
 import { IpsFotosSection } from "@/components/IpsFotosSection";
 import { useServicios, derivarLineas } from "@/lib/hooks/useCatalogos";
+import { useActualizarDiasCredito } from "@/lib/hooks/useEmpresa";
+import { useState } from "react";
+import { Loader2, Save } from "lucide-react";
+import { toast } from "sonner";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/app/admin/")({
   component: AdminDashboard,
@@ -113,11 +119,14 @@ function AdminDashboard() {
             {emps.length === 0 ? <p className="text-sm text-muted-foreground">Sin empresas.</p> : (
               <ul className="divide-y">
                 {emps.map((u) => (
-                  <li key={u.id} className="py-2">
-                    <div className="font-medium">{u.nombre}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {u.nit ? `NIT ${u.nit}` : ""}
+                  <li key={u.id} className="flex flex-wrap items-center justify-between gap-3 py-2">
+                    <div>
+                      <div className="font-medium">{u.nombre}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {u.nit ? `NIT ${u.nit}` : ""}
+                      </div>
                     </div>
+                    <DiasCredito key={`${u.id}-${u.dias_credito}`} empresa={u} />
                   </li>
                 ))}
               </ul>
@@ -143,5 +152,45 @@ function AdminDashboard() {
         </Card>
       </div>
     </div>
+  );
+}
+
+/** Días que tiene la empresa para pagar cada factura (migración 022). */
+function DiasCredito({ empresa }: { empresa: Profile }) {
+  const actualizar = useActualizarDiasCredito();
+  const [valor, setValor] = useState(String(empresa.dias_credito ?? 30));
+  const dias = Number(valor);
+  const valido = /^\d{1,3}$/.test(valor) && dias <= 365;
+  const cambiado = valido && dias !== empresa.dias_credito;
+
+  const guardar = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!cambiado) return;
+    actualizar.mutate(
+      { empresaId: empresa.id, dias },
+      {
+        onSuccess: () => toast.success(`${empresa.nombre}: ${dias} días de crédito`),
+        onError: () => toast.error("No se pudieron guardar los días de crédito"),
+      },
+    );
+  };
+
+  return (
+    <form onSubmit={guardar} className="flex items-center gap-2">
+      <label htmlFor={`credito-${empresa.id}`} className="text-xs text-muted-foreground">Días de crédito</label>
+      <Input
+        id={`credito-${empresa.id}`}
+        inputMode="numeric"
+        value={valor}
+        onChange={(e) => setValor(e.target.value.replace(/\D/g, "").slice(0, 3))}
+        aria-invalid={!valido || undefined}
+        className="h-8 w-16 text-right tabular-nums"
+      />
+      {cambiado && (
+        <Button type="submit" size="sm" disabled={actualizar.isPending} aria-label={`Guardar días de crédito de ${empresa.nombre}`}>
+          {actualizar.isPending ? <Loader2 className="animate-spin" /> : <Save />}
+        </Button>
+      )}
+    </form>
   );
 }

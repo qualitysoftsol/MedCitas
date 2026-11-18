@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CalendarDays, ClipboardList, FileUp, MapPin, FilePlus2, UserCircle } from "lucide-react";
+import { Briefcase, CalendarDays, ClipboardList, FileUp, MapPin, FilePlus2, UserCircle, Users } from "lucide-react";
 
 export const Route = createFileRoute("/app/admin/menus")({
   component: AdminMenus,
@@ -17,6 +17,8 @@ const EMPRESA_MENU = [
   { icon: MapPin, title: "Solicitar cita", desc: "Elegir IPS cercana en mapa y agendar examen" },
   { icon: ClipboardList, title: "Mis citas", desc: "Resumen de citas de empleados o próximos empleados" },
   { icon: FilePlus2, title: "Resultados", desc: "Consultar resultados de los exámenes" },
+  { icon: Users, title: "Mis empleados", desc: "Directorio de empleados a los que se agendan evaluaciones" },
+  { icon: Briefcase, title: "Cargos", desc: "Cargos de la empresa y los énfasis que definen sus pruebas" },
   { icon: UserCircle, title: "Mi perfil", desc: "Editar datos y contraseña" },
 ];
 

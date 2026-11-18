@@ -10,7 +10,7 @@ serve(async (req) => {
   )
 
   const [{ data: ips }, { data: solicitante }] = await Promise.all([
-    supabase.from('profiles').select('nombre').eq('id', record.ips_id).single(),
+    supabase.from('profiles').select('nombre, direccion').eq('id', record.ips_id).single(),
     supabase.from('profiles').select('nombre, role').eq('id', record.solicitante_id).single(),
   ])
 
@@ -24,32 +24,61 @@ serve(async (req) => {
   const { data: { user: ipsUser } } = await supabase.auth.admin.getUserById(record.ips_id)
   const { data: { user: solUser } } = await supabase.auth.admin.getUserById(record.solicitante_id)
 
+  // Datos que no vienen en el registro del trigger o que se completan después de
+  // crear la cita (empleado y aviso, migración 022). La función corre después
+  // de confirmarse la transacción, así que la cita ya tiene todo.
+  const [{ data: cita }, { data: pruebas }, { data: tipo }] = await Promise.all([
+    supabase.from('appointments').select('avisar_empleado, empleado:empleados(correo)').eq('id', record.id).maybeSingle(),
+    supabase.from('citas_pruebas').select('servicio, info:servicios(indicaciones, duracion_min)').eq('appointment_id', record.id),
+    supabase.from('tipos_evaluacion').select('indicaciones').eq('codigo', record.tipo_evaluacion ?? '').maybeSingle(),
+  ])
+  // Relación muchos-a-uno: PostgREST devuelve un objeto (los tipos sin generar dicen arreglo).
+  const uno = <T,>(v: T | T[] | null | undefined) => (Array.isArray(v) ? v[0] : v) ?? null
+  const correoEmpleado = cita?.avisar_empleado ? uno(cita.empleado)?.correo ?? null : null
+  const duracion = (pruebas ?? []).reduce((t, p) => t + (uno(p.info)?.duracion_min ?? 0), 0)
+  const indicaciones = [
+    ...(pruebas ?? []).map((p) => uno(p.info)?.indicaciones).filter((i): i is string => !!i?.trim()),
+    ...(tipo?.indicaciones?.trim() ? [tipo.indicaciones] : []),
+  ]
+
   const isCancel = record.estado === 'cancelada'
   const subject = isCancel
     ? `Cita cancelada — ${record.fecha} ${record.hora}`
     : `Cita confirmada — ${record.empleado_nombre}, ${record.fecha}`
 
   const body = isCancel
-    ? `La cita de ${record.empleado_nombre} (CC ${record.empleado_cedula}) el ${record.fecha} a las ${record.hora} ha sido cancelada.`
-    : `Se ha confirmado la cita de ${record.empleado_nombre} (CC ${record.empleado_cedula}) en ${ips?.nombre} el ${record.fecha} a las ${record.hora}. Examen: ${record.tipo_examen}.`
+    ? `La cita de ${record.empleado_nombre} (documento ${record.empleado_cedula}) el ${record.fecha} a las ${record.hora} ha sido cancelada.`
+    : `Se ha confirmado la cita de ${record.empleado_nombre} (documento ${record.empleado_cedula}) en ${ips?.nombre} el ${record.fecha} a las ${record.hora}. Evaluación: ${record.tipo_examen}. Pruebas: ${record.servicio}.`
 
   // La IPS recibe además quién solicitó la cita; el solicitante recibe el mensaje de siempre.
   const ipsBody = origen ? `${body} ${origen}` : body
 
-  const renderHtml = (texto: string) => `
+  const escapar = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  // Duración e indicaciones: para el paciente (particular o empleado), no para la IPS.
+  const preparacion = isCancel ? '' : `
+      ${duracion > 0 ? `<p>Duración aproximada de la visita: ${duracion >= 60 ? `${Math.floor(duracion / 60)} h ${duracion % 60 ? `${duracion % 60} min` : ''}` : `${duracion} min`}.</p>` : ''}
+      ${indicaciones.length ? `<p><strong>Antes de tu cita</strong></p><ul>${indicaciones.map((i) => `<li>${escapar(i)}</li>`).join('')}</ul>` : ''}`
+
+  const renderHtml = (texto: string, extra = '') => `
     <div style="font-family:sans-serif;max-width:600px;margin:0 auto">
       <h2 style="color:#0891b2">MedCitas</h2>
-      <p>${texto}</p>
+      <p>${escapar(texto)}</p>
+      ${extra}
       <a href="${Deno.env.get('SITE_URL') ?? 'https://medcitas.co'}" style="display:inline-block;margin-top:16px;padding:10px 20px;background:#0891b2;color:white;border-radius:6px;text-decoration:none">
         Ver en plataforma
       </a>
     </div>
   `
 
+  const empleadoBody = isCancel
+    ? `Tu cita del ${record.fecha} a las ${record.hora} en ${ips?.nombre} fue cancelada.`
+    : `Tienes una cita de evaluación médica ocupacional (${record.tipo_examen}) el ${record.fecha} a las ${record.hora} en ${ips?.nombre}${ips?.direccion ? `, ${ips.direccion}` : ''}. Pruebas: ${record.servicio}. Lleva tu documento de identidad.`
+
   const testEmail = Deno.env.get('RESEND_TEST_EMAIL')
   const realEmails = [
     { to: ipsUser?.email, html: renderHtml(ipsBody) },
-    { to: solUser?.email, html: renderHtml(body) },
+    { to: solUser?.email, html: renderHtml(body, solicitante?.role === 'particular' ? preparacion : '') },
+    { to: correoEmpleado, html: renderHtml(empleadoBody, preparacion) },
   ].filter((e): e is { to: string; html: string } => !!e.to)
   // In test mode every email (one per party) goes to RESEND_TEST_EMAIL; in production to real recipients
   const emails = testEmail ? realEmails.map((e) => ({ ...e, to: testEmail })) : realEmails

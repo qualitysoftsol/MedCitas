@@ -63,19 +63,31 @@ export function MotivoPicker({
   );
 }
 
-// Textos del recuadro de datos de cada tipo (voz del particular).
-const PANEL: Record<string, string> = {
-  PRE_INGRESO: "Se hace antes de firmar el contrato.",
-  PERIODICA: "Indica si es el control de rutina o si cambiaste de ocupación.",
-  EGRESO: "Registra cómo está tu salud al momento del retiro.",
-  POST_INCAPACIDAD: "Calculamos los días de incapacidad con estas fechas.",
-  RETORNO: "Por ejemplo, una licencia no remunerada larga.",
-  SEGUIMIENTO: "Elige la evaluación que originó el control.",
+type Voz = "particular" | "empresa";
+
+// Textos del recuadro de datos de cada tipo: el particular habla de sí mismo; la empresa, del empleado.
+const PANEL: Record<Voz, Record<string, string>> = {
+  particular: {
+    PRE_INGRESO: "Se hace antes de firmar el contrato.",
+    PERIODICA: "Indica si es el control de rutina o si cambiaste de ocupación.",
+    EGRESO: "Registra cómo está tu salud al momento del retiro.",
+    POST_INCAPACIDAD: "Calculamos los días de incapacidad con estas fechas.",
+    RETORNO: "Por ejemplo, una licencia no remunerada larga.",
+    SEGUIMIENTO: "Elige la evaluación que originó el control.",
+  },
+  empresa: {
+    PRE_INGRESO: "Se hace antes de firmar el contrato. Usamos el nombre de tu empresa y el cargo del empleado.",
+    PERIODICA: "Indica si es el control de rutina o si el empleado cambió de ocupación.",
+    EGRESO: "Registra cómo está la salud del empleado al momento del retiro.",
+    POST_INCAPACIDAD: "Calculamos los días de incapacidad con estas fechas.",
+    RETORNO: "Por ejemplo, una licencia no remunerada larga.",
+    SEGUIMIENTO: "Elige la evaluación que originó el control.",
+  },
 };
 
 /** Recuadro con los datos que pide el tipo de evaluación elegido. */
 export function DatosEvaluacionForm({
-  tipo, datos, onChange, errores, mostrarErrores, referencias,
+  tipo, datos, onChange, errores, mostrarErrores, referencias, voz = "particular", campoCargo,
 }: {
   tipo: TipoEvaluacion;
   datos: DatosEvaluacion;
@@ -84,7 +96,14 @@ export function DatosEvaluacionForm({
   mostrarErrores: boolean;
   /** Seguimiento: evaluaciones atendidas de esta persona. */
   referencias: Referencia[];
+  /**
+   * "empresa": la empresa y el cargo salen de quien agenda y del empleado, así
+   * que no se piden; en Periódica por cambio de ocupación se muestra `campoCargo`.
+   */
+  voz?: Voz;
+  campoCargo?: React.ReactNode;
 }) {
+  const empresa = voz === "empresa";
   const set = (campo: keyof DatosEvaluacion, v: string) => onChange({ ...datos, [campo]: v });
   const err = (campo: keyof ErroresDatos) => (mostrarErrores ? errores[campo] ?? null : null);
   const hoy = hoyISO();
@@ -131,10 +150,10 @@ export function DatosEvaluacionForm({
     <section className="space-y-4 rounded-xl border bg-primary-soft/40 p-4" aria-labelledby={id("titulo")}>
       <div>
         <h3 id={id("titulo")} className="font-semibold">Datos para la evaluación {tipo.nombre.toLowerCase()}</h3>
-        <p className="text-[13px] text-muted-foreground">{PANEL[tipo.codigo]}</p>
+        <p className="text-[13px] text-muted-foreground">{PANEL[voz][tipo.codigo]}</p>
       </div>
 
-      {tipo.codigo === "PRE_INGRESO" && (
+      {tipo.codigo === "PRE_INGRESO" && !empresa && (
         <div className="grid gap-4 sm:grid-cols-2">
           {texto("empresa", "Empresa que te contrata", "Ej.: Constructora Andina S.A.S.")}
           {texto("cargo", "Cargo al que aspiras", "Ej.: Auxiliar de bodega")}
@@ -144,14 +163,16 @@ export function DatosEvaluacionForm({
       {tipo.codigo === "PERIODICA" && (
         <div className="grid gap-4 sm:grid-cols-2">
           {lista("motivo", "Motivo", MOTIVOS_PERIODICA)}
-          {texto("cargo", "Cargo actual o nuevo", "Ej.: Operario de montacargas")}
+          {!empresa
+            ? texto("cargo", "Cargo actual o nuevo", "Ej.: Operario de montacargas")
+            : datos.motivo === "cambio_ocupacion" && campoCargo}
         </div>
       )}
 
       {tipo.codigo === "EGRESO" && (
         <div className="grid gap-4 sm:grid-cols-2">
           {fecha("fecha_retiro", "Fecha de retiro")}
-          {texto("empresa", "Empresa de la que te retiras", "Ej.: Logística del Centro S.A.S.")}
+          {!empresa && texto("empresa", "Empresa de la que te retiras", "Ej.: Logística del Centro S.A.S.")}
         </div>
       )}
 
@@ -163,7 +184,7 @@ export function DatosEvaluacionForm({
           </div>
           {errores.general
             ? nota(errores.general, "danger")
-            : nota(<>Aplica cuando la incapacidad fue de {DIAS_MIN_INCAPACIDAD} días calendario o más.{nInc != null && nInc > 0 ? <> Tu incapacidad: <strong>{nInc} días</strong>.</> : " Si fue menor, no necesitas esta evaluación y te lo diremos aquí."}</>)}
+            : nota(<>Aplica cuando la incapacidad fue de {DIAS_MIN_INCAPACIDAD} días calendario o más.{nInc != null && nInc > 0 ? <> {empresa ? "Incapacidad" : "Tu incapacidad"}: <strong>{nInc} días</strong>.</> : ` Si fue menor, no ${empresa ? "se necesita" : "necesitas"} esta evaluación y te lo diremos aquí.`}</>)}
         </>
       )}
 
@@ -176,7 +197,7 @@ export function DatosEvaluacionForm({
           </div>
           {errores.general
             ? nota(errores.general, "danger")
-            : nota(<>Aplica cuando estuviste ausente por causas no médicas {DIAS_MIN_AUSENCIA} días calendario o más.{nAus != null && nAus >= 0 ? <> Tu ausencia: <strong>{nAus} días</strong>.</> : null}</>)}
+            : nota(<>Aplica cuando {empresa ? "el empleado estuvo ausente" : "estuviste ausente"} por causas no médicas {DIAS_MIN_AUSENCIA} días calendario o más.{nAus != null && nAus >= 0 ? <> {empresa ? "Ausencia" : "Tu ausencia"}: <strong>{nAus} días</strong>.</> : null}</>)}
         </>
       )}
 
@@ -210,7 +231,9 @@ export function DatosEvaluacionForm({
               </FormField>
             </div>
           )}
-          {referencias.length === 0 && !datos.externa && nota("No tienes evaluaciones atendidas en MedCitas. Si te la hiciste en otra IPS, elige «Evaluación en otra IPS».")}
+          {referencias.length === 0 && !datos.externa && nota(empresa
+            ? "Este empleado no tiene evaluaciones atendidas que hayas agendado en MedCitas. Si se la hizo en otra IPS, elige «Evaluación en otra IPS»."
+            : "No tienes evaluaciones atendidas en MedCitas. Si te la hiciste en otra IPS, elige «Evaluación en otra IPS».")}
         </>
       )}
     </section>

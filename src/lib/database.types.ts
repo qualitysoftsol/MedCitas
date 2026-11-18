@@ -22,9 +22,11 @@ export type Database = {
           contacto_contabilidad_telefono: string | null
           contacto_contabilidad_email: string | null
           servicios: string[] | null
+          /** Empresas: días para pagar cada factura (migración 022). Solo el admin lo cambia. */
+          dias_credito: number
           created_at: string
         }
-        Insert: Omit<Database['public']['Tables']['profiles']['Row'], 'created_at'>
+        Insert: Omit<Database['public']['Tables']['profiles']['Row'], 'created_at' | 'dias_credito'>
         Update: Partial<Database['public']['Tables']['profiles']['Insert']>
       }
       ips_fotos: {
@@ -75,6 +77,11 @@ export type Database = {
           /** Nombres de los énfasis al momento de agendar. */
           enfasis: string[] | null
           cargo: string | null
+          /** Particulares: cuándo aceptó la política de datos (migración 021). */
+          politica_aceptada_at: string | null
+          /** Empresas: empleado del directorio y si se le avisa por correo (migración 022). */
+          empleado_id: string | null
+          avisar_empleado: boolean
           created_at: string
         }
         // Se crean con las funciones agendar_cita_empresa, agendar_lote_empresa y crear_cita_interna.
@@ -229,11 +236,36 @@ export type Database = {
           numero: string | null
           pdf_path: string | null
           pagada_at: string | null
+          /** Emisión + días de crédito de la empresa (migración 022). */
+          vence_el: string | null
           created_at: string
           updated_at: string
         }
         Insert: never
         Update: Partial<{ estado: 'pendiente' | 'pagada'; numero: string | null; pdf_path: string | null; pagada_at: string | null; updated_at: string }>
+      }
+      // Directorio de cada empresa (migración 022).
+      cargos: {
+        Row: { id: string; empresa_id: string; nombre: string; created_at: string }
+        // Se escriben con la función guardar_cargo, que también guarda los énfasis.
+        Insert: never
+        Update: never
+      }
+      empleados: {
+        Row: {
+          id: string
+          empresa_id: string
+          tipo_doc: TipoDoc
+          numero: string
+          nombres: string
+          apellidos: string
+          cargo_id: string | null
+          celular: string | null
+          correo: string | null
+          created_at: string
+        }
+        Insert: Omit<Database['public']['Tables']['empleados']['Row'], 'id' | 'created_at'>
+        Update: Partial<Omit<Database['public']['Tables']['empleados']['Row'], 'id' | 'created_at' | 'empresa_id'>>
       }
       facturas_empresa_items: {
         Row: { appointment_id: string; factura_id: string; valor: number }
@@ -285,6 +317,12 @@ export type TipoServicio = 'evaluacion_medica' | 'prueba_complementaria' | 'imag
 export type Servicio = Database['public']['Tables']['servicios']['Row'] & {
   lineas: Pick<LineaServicio, 'id' | 'nombre' | 'activo'>[]
 }
+
+export type TipoDoc = 'CC' | 'CE' | 'TI' | 'PA' | 'PPT'
+export type Empleado = Database['public']['Tables']['empleados']['Row']
+
+/** Cargo de una empresa con sus énfasis (useCargos). */
+export type Cargo = Database['public']['Tables']['cargos']['Row'] & { enfasis_ids: string[] }
 
 /** Énfasis con los servicios (pruebas) que suma (useEnfasis). */
 export type Enfasis = Database['public']['Tables']['enfasis']['Row'] & {

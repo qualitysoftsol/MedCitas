@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   CalendarDays, ClipboardList, FileUp, Users, Building2, ShieldCheck, LogOut, LayoutDashboard, Stethoscope,
-  User, BookOpen, House, CalendarPlus, FileText, UserRound, ChevronDown, Lock, Percent, Receipt,
+  User, BookOpen, House, CalendarPlus, FileText, UserRound, ChevronDown, Lock, Percent, Receipt, Briefcase,
 } from "lucide-react";
 import { NotificationBell } from "@/components/NotificationBell";
 import { Logo } from "@/components/app/Logo";
@@ -36,6 +36,8 @@ const NAV: Record<Role, NavItem[]> = {
     { to: "/app/empresa/solicitar", title: "Solicitar cita", icon: CalendarPlus },
     { to: "/app/empresa/citas", title: "Mis citas", icon: CalendarDays },
     { to: "/app/empresa/resultados", title: "Resultados", icon: FileText },
+    { to: "/app/empresa/empleados", title: "Mis empleados", icon: Users },
+    { to: "/app/empresa/cargos", title: "Cargos", icon: Briefcase },
     { to: "/app/empresa/facturas", title: "Facturas", icon: Receipt },
   ],
   particular: [

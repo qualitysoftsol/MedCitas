@@ -219,6 +219,14 @@ ALTER TABLE facturas_empresa ADD COLUMN vence_el date;   -- emisión + dias_cred
 
 RLS: `cargos`, `cargo_enfasis` y `empleados` son de lectura y escritura solo para su empresa y el admin. La IPS no lee el directorio: ve los datos copiados en la cita (`empleado_nombre`, `empleado_cedula`, `cargo`).
 
+Implementación:
+- `guardar_cargo(p_id, p_nombre, p_enfasis)` guarda el cargo y sus énfasis en un paso.
+- `agendar_cita_empresa(p_empleado_id, p_slot_id, p_tipo_evaluacion, p_datos, p_enfasis_ids, p_cargo, p_avisar)`: el nombre y el documento salen del directorio.
+- `agendar_lote_empresa(p_tipo_evaluacion, p_avisar, p_citas)`: crea o actualiza cada empleado por documento, toma los énfasis del cargo y arma los datos del tipo (empresa = la que agenda; Periódica = programada).
+- Los datos del tipo son obligatorios para todas las citas (trigger de la 021 extendido).
+- `profiles.dias_credito` solo lo cambia el admin (trigger `profile_dias_credito`). Se edita en el Panel, en la lista de empresas.
+- `notify-appointment` vuelve a leer la cita (el empleado y el aviso se completan después de crearla) y manda al empleado, si tiene correo, la cita, la dirección, las pruebas, la duración y las indicaciones.
+
 ---
 
 ## Pantallas

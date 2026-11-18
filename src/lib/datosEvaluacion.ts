@@ -66,7 +66,7 @@ export function erroresDatos(codigo: string, d: DatosEvaluacion): ErroresDatos {
     const n = diasIncapacidad(d);
     if (n != null && n < 1) e.fin = "El fin no puede ser antes del inicio.";
     else if (n != null && n < DIAS_MIN_INCAPACIDAD) {
-      e.general = `La incapacidad fue de ${n} ${n === 1 ? "día" : "días"}. Esta evaluación aplica desde ${DIAS_MIN_INCAPACIDAD} días calendario, así que no la necesitas.`;
+      e.general = `La incapacidad fue de ${n} ${n === 1 ? "día" : "días"}. Esta evaluación aplica desde ${DIAS_MIN_INCAPACIDAD} días calendario, así que no se necesita.`;
     }
   }
 
@@ -77,7 +77,7 @@ export function erroresDatos(codigo: string, d: DatosEvaluacion): ErroresDatos {
     const n = diasAusencia(d);
     if (n != null && n < 0) e.regreso = "El regreso no puede ser antes del inicio.";
     else if (n != null && n < DIAS_MIN_AUSENCIA) {
-      e.general = `La ausencia fue de ${n} ${n === 1 ? "día" : "días"}. Esta evaluación aplica desde ${DIAS_MIN_AUSENCIA} días calendario, así que no la necesitas.`;
+      e.general = `La ausencia fue de ${n} ${n === 1 ? "día" : "días"}. Esta evaluación aplica desde ${DIAS_MIN_AUSENCIA} días calendario, así que no se necesita.`;
     }
   }
 

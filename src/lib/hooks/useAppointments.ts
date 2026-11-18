@@ -76,14 +76,27 @@ export function errorAgendar(err: unknown): { codigo?: string; mensaje: string; 
   }
 }
 
+/** Una cita de un empleado del directorio (agendar_cita_empresa, migración 022). */
 export interface CitaEmpresa {
+  empleado_id: string
   slot_id: string
-  empleado_nombre: string
-  empleado_cedula: string
   enfasis_ids: string[]
-  cargo?: string | null
-  /** Datos del tipo de evaluación; null mientras el flujo no los pida. */
-  datos?: Record<string, unknown> | null
+  cargo: string | null
+  /** Datos que pide el tipo de evaluación (ver lib/datosEvaluacion). */
+  datos: Record<string, unknown>
+}
+
+/** Una fila del archivo (agendar_lote_empresa): crea o actualiza el empleado; los énfasis salen del cargo. */
+export interface FilaLote {
+  slot_id: string
+  tipo_doc: string
+  numero: string
+  nombres: string
+  apellidos: string
+  cargo_id: string
+  celular: string | null
+  correo: string | null
+  fecha_retiro: string | null
 }
 
 function invalidarCitas(qc: ReturnType<typeof useQueryClient>, ipsId: string | null) {
@@ -97,16 +110,16 @@ function invalidarCitas(qc: ReturnType<typeof useQueryClient>, ipsId: string | n
 export function useAgendarCitaEmpresa() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ cita, tipo_evaluacion }: { cita: CitaEmpresa; tipo_evaluacion: string; ips_id: string }) => {
+    mutationFn: async ({ cita, tipo_evaluacion, avisar }: { cita: CitaEmpresa; tipo_evaluacion: string; avisar: boolean; ips_id: string }) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase.rpc as any)('agendar_cita_empresa', {
+        p_empleado_id: cita.empleado_id,
         p_slot_id: cita.slot_id,
-        p_empleado_nombre: cita.empleado_nombre,
-        p_empleado_cedula: cita.empleado_cedula,
         p_tipo_evaluacion: tipo_evaluacion,
-        p_datos: cita.datos ?? null,
+        p_datos: cita.datos,
         p_enfasis_ids: cita.enfasis_ids,
-        p_cargo: cita.cargo ?? null,
+        p_cargo: cita.cargo,
+        p_avisar: avisar,
       })
       if (error) throw error
       return data as string
@@ -118,16 +131,20 @@ export function useAgendarCitaEmpresa() {
 export function useAgendarLoteEmpresa() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ citas, tipo_evaluacion }: { citas: CitaEmpresa[]; tipo_evaluacion: string; ips_id: string }) => {
+    mutationFn: async ({ filas, tipo_evaluacion, avisar }: { filas: FilaLote[]; tipo_evaluacion: string; avisar: boolean; ips_id: string }) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase.rpc as any)('agendar_lote_empresa', {
         p_tipo_evaluacion: tipo_evaluacion,
-        p_citas: citas,
+        p_avisar: avisar,
+        p_citas: filas,
       })
       if (error) throw error
       return data as number
     },
-    onSuccess: (_data, { ips_id }) => invalidarCitas(qc, ips_id),
+    onSuccess: (_data, { ips_id }) => {
+      invalidarCitas(qc, ips_id)
+      qc.invalidateQueries({ queryKey: ['empleados'] })
+    },
   })
 }
 

@@ -169,6 +169,7 @@ function FacturasEmpresas() {
                     <TableCell className="pl-5">
                       <div className="font-medium">{f.empresa?.nombre ?? "—"}</div>
                       {f.empresa?.nit && <div className="text-xs text-muted-foreground">NIT {f.empresa.nit}</div>}
+                      {f.vence_el && <div className="text-xs text-muted-foreground">Vence el {formatFechaCorta(f.vence_el)}</div>}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{f.num_citas}</TableCell>
                     <TableCell className="whitespace-nowrap text-right font-semibold tabular-nums">{formatPesos(f.total)}</TableCell>

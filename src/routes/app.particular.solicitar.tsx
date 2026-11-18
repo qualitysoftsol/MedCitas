@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  AlertTriangle, CalendarClock, CalendarPlus, Check, ChevronLeft, ChevronRight, ChevronDown, ClipboardList, CreditCard, Info, Loader2, Lock,
+  AlertTriangle, CalendarClock, CalendarPlus, Check, ChevronLeft, ChevronRight, ClipboardList, CreditCard, Info, Loader2, Lock,
   MapPin, Navigation,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -17,7 +17,7 @@ import { useAppointments } from "@/lib/hooks/useAppointments";
 import { PagoError, useIniciarPago } from "@/lib/hooks/usePagos";
 import { useTiposEvaluacion } from "@/lib/hooks/useCatalogos";
 import {
-  erroresDatos, formatDuracion, indicacionesDe, limpiarDatos, type DatosEvaluacion, type Indicacion,
+  erroresDatos, formatDuracion, indicacionesDe, limpiarDatos, type DatosEvaluacion,
 } from "@/lib/datosEvaluacion";
 import { capitalizar, fechaPartes, formatFechaLarga, formatHora, formatPesos, hoyISO, iniciales, parseFecha } from "@/lib/format";
 import { Stepper, type WizardStep } from "@/components/solicitar/WizardParts";
@@ -27,6 +27,7 @@ import { DatosEvaluacionForm, MotivoPicker, type Referencia } from "@/components
 import { EnfasisChips } from "@/components/evaluacion/EnfasisChips";
 import { IpsEleccion } from "@/components/evaluacion/IpsEleccion";
 import { SemanaHorarios } from "@/components/evaluacion/SemanaHorarios";
+import { AntesDeTuCita, Dato, Encabezado, FilaRevision, IndicacionesPlegables, PanelResumen, PasoNav } from "@/components/evaluacion/Piezas";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/app/particular/solicitar")({
@@ -196,7 +197,7 @@ function ParticularSolicitar() {
           <>
             <Card className="lg:col-span-8">
               <CardContent className="space-y-6 p-5 md:p-6">
-                <Encabezado refEl={headingRef} paso={1} titulo="¿Qué evaluación necesitas?" descripcion="Elige el motivo. Con eso sabemos qué pruebas incluir y qué IPS pueden atenderte." />
+                <Encabezado refEl={headingRef} paso={1} total={TOTAL} titulo="¿Qué evaluación necesitas?" descripcion="Elige el motivo. Con eso sabemos qué pruebas incluir y qué IPS pueden atenderte." />
 
                 <div className="flex items-center gap-3 rounded-xl border bg-surface p-3">
                   <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground" aria-hidden>{iniciales(profile?.nombre)}</span>
@@ -231,7 +232,7 @@ function ParticularSolicitar() {
             </Card>
             <aside className="space-y-4 lg:col-span-4">
               <div className="space-y-4 lg:sticky lg:top-24">
-                <TuEvaluacion>
+                <PanelResumen titulo="Tu evaluación">
                   <Dato label="Tipo">{tipo?.nombre}</Dato>
                   <Dato label="Énfasis">{enfasisSel.map((e) => e.nombre).join(", ") || null}</Dato>
                   {evaluacion.pruebas.length > 0 && (
@@ -245,7 +246,7 @@ function ParticularSolicitar() {
                     </div>
                   )}
                   <Dato label="Valor">Se calcula al elegir la IPS</Dato>
-                </TuEvaluacion>
+                </PanelResumen>
                 <p className="rounded-xl border border-warning/40 bg-warning-soft p-3 text-[13px] text-warning-foreground">
                   Las pruebas finales las define el médico según tu cargo.
                 </p>
@@ -272,11 +273,11 @@ function ParticularSolicitar() {
             selectedIps={selectedIps}
             onSelect={elegirIps}
             resumen={
-              <TuEvaluacion>
+              <PanelResumen titulo="Tu evaluación">
                 <Dato label="Tipo">{evaluacionTexto}</Dato>
                 <Dato label="Pruebas">{(cobertura?.hechas.length ? cobertura.hechas.map((h) => h.nombre) : evaluacion.pruebas.map((p) => p.nombre)).join(", ")}</Dato>
                 <Dato label="IPS">{ipsSel?.nombre}</Dato>
-              </TuEvaluacion>
+              </PanelResumen>
             }
             nav={navPaso("Continuar: elegir horario")}
           />
@@ -290,6 +291,7 @@ function ParticularSolicitar() {
                 <Encabezado
                   refEl={headingRef}
                   paso={3}
+                  total={TOTAL}
                   titulo="¿Cuándo puedes ir?"
                   descripcion={<>Horarios en <strong className="text-foreground">{ipsSel?.nombre}</strong>. <button type="button" onClick={() => setStep(2)} className="font-medium text-foreground underline underline-offset-2">Cambiar IPS</button></>}
                 />
@@ -303,7 +305,7 @@ function ParticularSolicitar() {
             </Card>
             <aside className="lg:col-span-4">
               <div className="lg:sticky lg:top-24">
-                <TuEvaluacion>
+                <PanelResumen titulo="Tu evaluación">
                   <Dato label="Tipo">{evaluacionTexto}</Dato>
                   <Dato label="IPS" sub={ipsSel?.direccion ?? undefined}>{ipsSel?.nombre}</Dato>
                   <Dato label="Fecha y hora">{slotSel ? `${capitalizar(formatFechaLarga(slotSel.fecha))} · ${formatHora(slotSel.hora)}` : null}</Dato>
@@ -313,7 +315,7 @@ function ParticularSolicitar() {
                       <span className="text-lg font-bold tabular-nums">{formatPesos(cobertura.total)}</span>
                     </div>
                   )}
-                </TuEvaluacion>
+                </PanelResumen>
               </div>
             </aside>
           </>
@@ -323,7 +325,7 @@ function ParticularSolicitar() {
         {step === 4 && slotSel && cobertura && (
           <Card className="lg:col-span-8 lg:col-start-3">
             <CardContent className="space-y-5 p-5 md:p-6">
-              <Encabezado refEl={headingRef} paso={4} titulo="Revisa y paga tu cita" />
+              <Encabezado refEl={headingRef} paso={4} total={TOTAL} titulo="Revisa y paga tu cita" />
 
               <div className="flex flex-wrap items-center gap-4 rounded-xl bg-primary p-4 text-primary-foreground">
                 <div className="flex w-14 shrink-0 flex-col items-center rounded-lg bg-white/15 py-1.5" aria-hidden>
@@ -369,13 +371,7 @@ function ParticularSolicitar() {
               </section>
 
               {indicaciones.length > 0 && (
-                <details className="group rounded-xl border border-warning/40 bg-warning-soft">
-                  <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-semibold text-warning-foreground">
-                    <ChevronDown className="size-4 transition-transform group-open:rotate-180" aria-hidden />
-                    Antes de tu cita ({indicaciones.length} {indicaciones.length === 1 ? "indicación" : "indicaciones"})
-                  </summary>
-                  <div className="px-4 pb-3"><ListaIndicaciones indicaciones={indicaciones} /></div>
-                </details>
+                <IndicacionesPlegables indicaciones={indicaciones} />
               )}
 
               <div className="space-y-2.5">
@@ -414,73 +410,5 @@ function ParticularSolicitar() {
         )}
       </div>
     </div>
-  );
-}
-
-function Encabezado({ refEl, paso, titulo, descripcion }: { refEl: RefObject<HTMLHeadingElement | null>; paso: number; titulo: string; descripcion?: ReactNode }) {
-  return (
-    <div>
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Paso {paso} de {TOTAL}</p>
-      <h2 ref={refEl} tabIndex={-1} className="mt-1 text-xl font-bold focus:outline-none">{titulo}</h2>
-      {descripcion && <p className="mt-1 text-sm text-muted-foreground">{descripcion}</p>}
-    </div>
-  );
-}
-
-function PasoNav({ atras, siguiente }: { atras: ReactNode; siguiente: ReactNode }) {
-  return <div className="flex items-center justify-between gap-3">{atras}{siguiente}</div>;
-}
-
-function TuEvaluacion({ children }: { children: ReactNode }) {
-  return (
-    <section aria-label="Tu evaluación" className="rounded-2xl border bg-card p-5 shadow-sm">
-      <h2 className="mb-3 font-semibold">Tu evaluación</h2>
-      <div className="space-y-3">{children}</div>
-    </section>
-  );
-}
-
-function Dato({ label, sub, children }: { label: string; sub?: string; children: ReactNode }) {
-  return (
-    <div>
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className={cn("text-sm", children ? "font-semibold" : "text-muted-foreground")}>{children || "Pendiente"}</p>
-      {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
-    </div>
-  );
-}
-
-function FilaRevision({ label, valor, nota, onCambiar }: { label: string; valor: string; nota?: string; onCambiar?: () => void }) {
-  return (
-    <div className="flex items-center gap-3 px-4 py-3">
-      <div className="min-w-0 flex-1">
-        <dt className="text-xs text-muted-foreground">{label}</dt>
-        <dd className="font-medium">{valor}</dd>
-      </div>
-      {onCambiar ? (
-        <Button variant="ghost" size="sm" onClick={onCambiar} aria-label={`Cambiar ${label.toLowerCase()}`}>Cambiar</Button>
-      ) : nota ? (
-        <span className="text-xs text-muted-foreground">{nota}</span>
-      ) : null}
-    </div>
-  );
-}
-
-function ListaIndicaciones({ indicaciones }: { indicaciones: Indicacion[] }) {
-  return (
-    <ul className="list-disc space-y-1 pl-5 text-[13px]">
-      {indicaciones.map((i, n) => (
-        <li key={n}>{i.texto}{i.origen && <span className="text-muted-foreground"> ({i.origen.toLowerCase()})</span>}</li>
-      ))}
-    </ul>
-  );
-}
-
-function AntesDeTuCita({ indicaciones }: { indicaciones: Indicacion[] }) {
-  return (
-    <section aria-labelledby="antes-cita" className="rounded-xl border border-warning/40 bg-warning-soft p-4 text-warning-foreground">
-      <h3 id="antes-cita" className="mb-2 font-semibold">Antes de tu cita</h3>
-      <ListaIndicaciones indicaciones={indicaciones} />
-    </section>
   );
 }

@@ -27,7 +27,9 @@ import { Route as AppIpsCalendarioRouteImport } from './routes/app.ips.calendari
 import { Route as AppEmpresaSolicitarRouteImport } from './routes/app.empresa.solicitar'
 import { Route as AppEmpresaResultadosRouteImport } from './routes/app.empresa.resultados'
 import { Route as AppEmpresaFacturasRouteImport } from './routes/app.empresa.facturas'
+import { Route as AppEmpresaEmpleadosRouteImport } from './routes/app.empresa.empleados'
 import { Route as AppEmpresaCitasRouteImport } from './routes/app.empresa.citas'
+import { Route as AppEmpresaCargosRouteImport } from './routes/app.empresa.cargos'
 import { Route as AppAdminRegistrarRouteImport } from './routes/app.admin.registrar'
 import { Route as AppAdminMenusRouteImport } from './routes/app.admin.menus'
 import { Route as AppAdminFacturacionRouteImport } from './routes/app.admin.facturacion'
@@ -124,9 +126,19 @@ const AppEmpresaFacturasRoute = AppEmpresaFacturasRouteImport.update({
   path: '/empresa/facturas',
   getParentRoute: () => AppRoute,
 } as any)
+const AppEmpresaEmpleadosRoute = AppEmpresaEmpleadosRouteImport.update({
+  id: '/empresa/empleados',
+  path: '/empresa/empleados',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppEmpresaCitasRoute = AppEmpresaCitasRouteImport.update({
   id: '/empresa/citas',
   path: '/empresa/citas',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppEmpresaCargosRoute = AppEmpresaCargosRouteImport.update({
+  id: '/empresa/cargos',
+  path: '/empresa/cargos',
   getParentRoute: () => AppRoute,
 } as any)
 const AppAdminRegistrarRoute = AppAdminRegistrarRouteImport.update({
@@ -167,7 +179,9 @@ export interface FileRoutesByFullPath {
   '/app/admin/facturacion': typeof AppAdminFacturacionRoute
   '/app/admin/menus': typeof AppAdminMenusRoute
   '/app/admin/registrar': typeof AppAdminRegistrarRoute
+  '/app/empresa/cargos': typeof AppEmpresaCargosRoute
   '/app/empresa/citas': typeof AppEmpresaCitasRoute
+  '/app/empresa/empleados': typeof AppEmpresaEmpleadosRoute
   '/app/empresa/facturas': typeof AppEmpresaFacturasRoute
   '/app/empresa/resultados': typeof AppEmpresaResultadosRoute
   '/app/empresa/solicitar': typeof AppEmpresaSolicitarRoute
@@ -193,7 +207,9 @@ export interface FileRoutesByTo {
   '/app/admin/facturacion': typeof AppAdminFacturacionRoute
   '/app/admin/menus': typeof AppAdminMenusRoute
   '/app/admin/registrar': typeof AppAdminRegistrarRoute
+  '/app/empresa/cargos': typeof AppEmpresaCargosRoute
   '/app/empresa/citas': typeof AppEmpresaCitasRoute
+  '/app/empresa/empleados': typeof AppEmpresaEmpleadosRoute
   '/app/empresa/facturas': typeof AppEmpresaFacturasRoute
   '/app/empresa/resultados': typeof AppEmpresaResultadosRoute
   '/app/empresa/solicitar': typeof AppEmpresaSolicitarRoute
@@ -220,7 +236,9 @@ export interface FileRoutesById {
   '/app/admin/facturacion': typeof AppAdminFacturacionRoute
   '/app/admin/menus': typeof AppAdminMenusRoute
   '/app/admin/registrar': typeof AppAdminRegistrarRoute
+  '/app/empresa/cargos': typeof AppEmpresaCargosRoute
   '/app/empresa/citas': typeof AppEmpresaCitasRoute
+  '/app/empresa/empleados': typeof AppEmpresaEmpleadosRoute
   '/app/empresa/facturas': typeof AppEmpresaFacturasRoute
   '/app/empresa/resultados': typeof AppEmpresaResultadosRoute
   '/app/empresa/solicitar': typeof AppEmpresaSolicitarRoute
@@ -248,7 +266,9 @@ export interface FileRouteTypes {
     | '/app/admin/facturacion'
     | '/app/admin/menus'
     | '/app/admin/registrar'
+    | '/app/empresa/cargos'
     | '/app/empresa/citas'
+    | '/app/empresa/empleados'
     | '/app/empresa/facturas'
     | '/app/empresa/resultados'
     | '/app/empresa/solicitar'
@@ -274,7 +294,9 @@ export interface FileRouteTypes {
     | '/app/admin/facturacion'
     | '/app/admin/menus'
     | '/app/admin/registrar'
+    | '/app/empresa/cargos'
     | '/app/empresa/citas'
+    | '/app/empresa/empleados'
     | '/app/empresa/facturas'
     | '/app/empresa/resultados'
     | '/app/empresa/solicitar'
@@ -300,7 +322,9 @@ export interface FileRouteTypes {
     | '/app/admin/facturacion'
     | '/app/admin/menus'
     | '/app/admin/registrar'
+    | '/app/empresa/cargos'
     | '/app/empresa/citas'
+    | '/app/empresa/empleados'
     | '/app/empresa/facturas'
     | '/app/empresa/resultados'
     | '/app/empresa/solicitar'
@@ -451,11 +475,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppEmpresaFacturasRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/empresa/empleados': {
+      id: '/app/empresa/empleados'
+      path: '/empresa/empleados'
+      fullPath: '/app/empresa/empleados'
+      preLoaderRoute: typeof AppEmpresaEmpleadosRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/empresa/citas': {
       id: '/app/empresa/citas'
       path: '/empresa/citas'
       fullPath: '/app/empresa/citas'
       preLoaderRoute: typeof AppEmpresaCitasRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/empresa/cargos': {
+      id: '/app/empresa/cargos'
+      path: '/empresa/cargos'
+      fullPath: '/app/empresa/cargos'
+      preLoaderRoute: typeof AppEmpresaCargosRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/admin/registrar': {
@@ -503,7 +541,9 @@ interface AppRouteChildren {
   AppAdminFacturacionRoute: typeof AppAdminFacturacionRoute
   AppAdminMenusRoute: typeof AppAdminMenusRoute
   AppAdminRegistrarRoute: typeof AppAdminRegistrarRoute
+  AppEmpresaCargosRoute: typeof AppEmpresaCargosRoute
   AppEmpresaCitasRoute: typeof AppEmpresaCitasRoute
+  AppEmpresaEmpleadosRoute: typeof AppEmpresaEmpleadosRoute
   AppEmpresaFacturasRoute: typeof AppEmpresaFacturasRoute
   AppEmpresaResultadosRoute: typeof AppEmpresaResultadosRoute
   AppEmpresaSolicitarRoute: typeof AppEmpresaSolicitarRoute
@@ -525,7 +565,9 @@ const AppRouteChildren: AppRouteChildren = {
   AppAdminFacturacionRoute: AppAdminFacturacionRoute,
   AppAdminMenusRoute: AppAdminMenusRoute,
   AppAdminRegistrarRoute: AppAdminRegistrarRoute,
+  AppEmpresaCargosRoute: AppEmpresaCargosRoute,
   AppEmpresaCitasRoute: AppEmpresaCitasRoute,
+  AppEmpresaEmpleadosRoute: AppEmpresaEmpleadosRoute,
   AppEmpresaFacturasRoute: AppEmpresaFacturasRoute,
   AppEmpresaResultadosRoute: AppEmpresaResultadosRoute,
   AppEmpresaSolicitarRoute: AppEmpresaSolicitarRoute,

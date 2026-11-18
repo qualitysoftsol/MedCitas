@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/app/PageHeader";
 import { EmptyState, ErrorState } from "@/components/app/EmptyState";
 import { DescargarPdfButton, DetalleCitasDialog, EstadoCobroBadge } from "@/components/app/Facturacion";
 import { useFacturaItems, useFacturas, type FacturaConEmpresa } from "@/lib/hooks/useFacturacion";
-import { formatMes, formatPesos } from "@/lib/format";
+import { formatFechaCorta, formatMes, formatPesos } from "@/lib/format";
 
 export const Route = createFileRoute("/app/empresa/facturas")({
   component: EmpresaFacturas,
@@ -50,6 +50,7 @@ function EmpresaFacturas() {
                     <TableHead>N.º de factura</TableHead>
                     <TableHead className="text-right">Citas</TableHead>
                     <TableHead className="text-right">Total</TableHead>
+                    <TableHead>Vence el</TableHead>
                     <TableHead>Estado</TableHead>
                     <TableHead className="pr-5 text-right">Acciones</TableHead>
                   </TableRow>
@@ -61,6 +62,7 @@ function EmpresaFacturas() {
                       <TableCell>{f.numero ?? <span className="text-muted-foreground">—</span>}</TableCell>
                       <TableCell className="text-right tabular-nums">{f.num_citas}</TableCell>
                       <TableCell className="whitespace-nowrap text-right font-semibold tabular-nums">{formatPesos(f.total)}</TableCell>
+                      <TableCell className="whitespace-nowrap">{f.vence_el ? formatFechaCorta(f.vence_el) : "—"}</TableCell>
                       <TableCell><EstadoCobroBadge estado={f.estado} /></TableCell>
                       <TableCell className="pr-5">
                         <div className="flex justify-end gap-2">
