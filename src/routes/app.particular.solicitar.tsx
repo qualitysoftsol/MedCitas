@@ -18,6 +18,7 @@ import { capitalizar, fechaPartes, formatFecha, formatFechaCorta, formatHora, fo
 import { ConfirmRow, Resumen, StepHeading, Stepper, TotalRow, WizardNav, type WizardStep } from "@/components/solicitar/WizardParts";
 import { HorarioPicker, IpsStep, TipoExamenPicker, UbicacionStep } from "@/components/solicitar/Steps";
 import { esFuturo, soloDigitos, useIpsSearch, type LatLng } from "@/components/solicitar/useIpsSearch";
+import { useEvaluacion } from "@/components/solicitar/useEvaluacion";
 
 export const Route = createFileRoute("/app/particular/solicitar")({
   component: ParticularSolicitar,
@@ -57,23 +58,26 @@ function ParticularSolicitar() {
   const { data: tiposExamen = [], isLoading: tiposLoading } = useTiposEvaluacion();
   const tiposDisponibles = useMemo(() => tiposExamen.filter((t) => t.roles_permitidos.includes("particular")), [tiposExamen]);
 
+  const tipoSel = tiposDisponibles.find((t) => t.codigo === tipoExamen) ?? null;
   useEffect(() => {
-    if (tiposDisponibles.length > 0 && !tipoExamen) setTipoExamen(tiposDisponibles[0].nombre);
+    if (tiposDisponibles.length > 0 && !tipoExamen) setTipoExamen(tiposDisponibles[0].codigo);
   }, [tiposDisponibles, tipoExamen]);
   useEffect(() => {
     if (profile?.cedula && !cedula) setCedula(profile.cedula);
   }, [profile?.cedula]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const search = useIpsSearch({ depto, ciudad, userLoc, filtro, selectedIps });
+  const evaluacion = useEvaluacion();
+  const search = useIpsSearch({ depto, ciudad, userLoc, filtro, selectedIps, pruebas: evaluacion.pruebas });
   const hoy = hoyISO();
   const { data: slotsRaw = [], isLoading: slotsLoading, refetch: refetchSlots } = useAvailableSlots(selectedIps);
-  // Solo horarios futuros y con precio (sin precio no se pueden agendar).
-  const { precioDe } = search;
-  const slotsIps = useMemo(() => slotsRaw.filter((s) => esFuturo(s, hoy) && precioDe(s) != null), [slotsRaw, hoy, precioDe]);
+  const slotsIps = useMemo(() => slotsRaw.filter((s) => esFuturo(s, hoy)), [slotsRaw, hoy]);
 
   const ipsSel = search.ipsEnCiudad.find((i) => i.id === selectedIps) ?? null;
   const slotSel = slotsIps.find((s) => s.id === selectedSlot) ?? null;
-  const valorSel = slotSel ? precioDe(slotSel) : null;
+  // Pruebas que hace la IPS elegida y su total (precio + comisión).
+  const cobertura = search.coberturaDe(selectedIps);
+  const valorSel = cobertura && cobertura.hechas.length > 0 ? cobertura.total : null;
+  const resumenPruebas = cobertura?.hechas.map((p) => p.nombre).join(", ") ?? "";
 
   const cedulaError = !cedula.trim() ? "Ingresa tu número de documento." : !/^\d{5,12}$/.test(cedula) ? "Usa solo números, entre 5 y 12 dígitos." : null;
   const tipoError = !tipoExamen ? "Selecciona el motivo de la evaluación." : null;
@@ -110,7 +114,7 @@ function ParticularSolicitar() {
     setBookError(null);
     if (!slotSel || !profile) return;
     iniciarPago.mutate(
-      { slot_id: slotSel.id, empleado_cedula: cedula, tipo_examen: tipoExamen },
+      { slot_id: slotSel.id, empleado_cedula: cedula, tipo_evaluacion: tipoExamen, enfasis_ids: evaluacion.enfasisIds },
       {
         onSuccess: ({ redirect_url }) => window.location.assign(redirect_url),
         onError: (err) => {
@@ -118,8 +122,11 @@ function ParticularSolicitar() {
           const msg = err.message.includes("Failed to fetch") ? "Sin conexión. Revisa tu internet e inténtalo de nuevo." : err.message;
           setBookError(msg);
           toast.error(msg);
-          if (codigo === "HORARIO_TOMADO" || codigo === "SERVICIO_SIN_PRECIO") {
-            setSelectedSlot(null); void refetchSlots(); void qc.invalidateQueries({ queryKey: ["precios-servicios"] }); setStep(4);
+          if (codigo === "HORARIO_TOMADO") {
+            setSelectedSlot(null); void refetchSlots(); setStep(4);
+          }
+          if (codigo === "SIN_PRUEBAS") {
+            setSelectedSlot(null); void qc.invalidateQueries({ queryKey: ["precios-servicios"] }); setStep(3);
           }
         },
       },
@@ -128,7 +135,7 @@ function ParticularSolicitar() {
 
   const current = STEPS[step - 1];
   const resumenRows = [
-    { icon: ClipboardList, label: "Examen", value: tipoExamen ? `Examen de ${tipoExamen.toLowerCase()}` : null },
+    { icon: ClipboardList, label: "Evaluación", value: tipoSel?.nombre ?? null },
     { icon: MapPin, label: "Ciudad", value: ciudad || null },
     { icon: Building2, label: "IPS", value: ipsSel?.nombre ?? null },
     { icon: CalendarClock, label: "Fecha y hora", value: slotSel ? `${formatFechaCorta(slotSel.fecha)}, ${formatHora(slotSel.hora)}` : null },
@@ -204,8 +211,7 @@ function ParticularSolicitar() {
               <CardContent className="space-y-6">
                 <HorarioPicker
                   slots={slotsIps}
-                  loading={slotsLoading || search.preciosLoading}
-                  precioDe={precioDe}
+                  loading={slotsLoading}
                   selectedSlot={selectedSlot}
                   onSelectSlot={setSelectedSlot}
                   selectedFecha={selectedFecha}
@@ -229,16 +235,16 @@ function ParticularSolicitar() {
                 </div>
                 <div>
                   <p className="text-lg font-semibold">{capitalizar(formatFecha(slotSel.fecha))}</p>
-                  <p className="opacity-90">{formatHora(slotSel.hora)} · {slotSel.servicio}</p>
+                  <p className="opacity-90">{formatHora(slotSel.hora)} · {ipsSel?.nombre}</p>
                 </div>
               </div>
               <dl className="divide-y rounded-xl border">
-                <ConfirmRow icon={ClipboardList} label="Examen" value={`Examen de ${tipoExamen.toLowerCase()}`} onEdit={() => setStep(1)} />
+                <ConfirmRow icon={ClipboardList} label="Evaluación" value={tipoSel?.nombre ?? ""} sub={resumenPruebas} onEdit={() => setStep(1)} />
                 <ConfirmRow icon={IdCard} label="Paciente" value={`${profile?.nombre ?? ""} · ${cedula}`} onEdit={() => setStep(1)} />
                 <ConfirmRow icon={Building2} label="IPS" value={ipsSel?.nombre ?? ""} sub={[ipsSel?.direccion, slotSel.ciudad].filter(Boolean).join(" · ")} onEdit={() => setStep(3)} />
                 <ConfirmRow icon={CalendarClock} label="Fecha y hora" value={`${formatFechaCorta(slotSel.fecha)}, ${formatHora(slotSel.hora)}`} onEdit={() => setStep(4)} />
               </dl>
-              {valorSel != null && <TotalRow valor={valorSel} detalle={slotSel.servicio} />}
+              {valorSel != null && <TotalRow valor={valorSel} detalle={`${cobertura!.hechas.length} ${cobertura!.hechas.length === 1 ? "prueba" : "pruebas"}`} />}
               <p className="flex items-start gap-2 rounded-lg bg-info-soft px-3 py-2 text-[13px] text-info-foreground">
                 <Info className="mt-0.5 size-4 shrink-0" aria-hidden /> Al continuar te llevamos a la página segura de pago. Apartamos el horario por 30 minutos; la cita queda confirmada cuando se apruebe el pago. Puedes cancelarla con reembolso total hasta 12 horas antes.
               </p>

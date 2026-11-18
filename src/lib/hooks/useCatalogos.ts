@@ -235,6 +235,23 @@ export function useToggleEnfasisServicio() {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+const ORDEN_TIPO: Record<TipoServicio, number> = { evaluacion_medica: 0, prueba_complementaria: 1, imagen: 2, terapia: 3 }
+
+/** Ordena como el resumen de la cita: evaluación médica, pruebas, imágenes, terapias; luego por nombre. */
+export function ordenarServicios<T extends Pick<Servicio, 'tipo' | 'nombre'>>(lista: T[]): T[] {
+  const orden = (s: T) => (s.tipo ? ORDEN_TIPO[s.tipo] : 9)
+  return [...lista].sort((a, b) => orden(a) - orden(b) || a.nombre.localeCompare(b.nombre))
+}
+
+/**
+ * Pruebas de una evaluación: los servicios de los énfasis elegidos que están en
+ * al menos una línea activa. Es la misma regla de crear_cita_interna (migración 020).
+ */
+export function pruebasDeEnfasis(enfasisIds: string[], enfasis: Enfasis[], servicios: Servicio[]): Servicio[] {
+  const ids = new Set(enfasis.filter((e) => enfasisIds.includes(e.id)).flatMap((e) => e.servicio_ids))
+  return ordenarServicios(servicios.filter((s) => ids.has(s.id) && s.lineas.some((l) => l.activo)))
+}
+
 /** Líneas activas de los servicios que presta una IPS (sus servicios se guardan por nombre). */
 export function derivarLineas(nombresServicios: string[], catalogo: Servicio[]): string[] {
   const set = new Set<string>()

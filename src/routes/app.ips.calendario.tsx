@@ -27,7 +27,7 @@ import { PageHeader } from "@/components/app/PageHeader";
 import { FormField } from "@/components/app/FormField";
 import { EmptyState } from "@/components/app/EmptyState";
 import { StatusPill } from "@/components/app/StatusBadge";
-import { capitalizar, formatFecha, formatHora, formatPesos, hoyISO } from "@/lib/format";
+import { capitalizar, formatFecha, formatHora, hoyISO } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/app/ips/calendario")({
@@ -46,11 +46,11 @@ const ESTADO_AGENDADA = { label: "Agendada", tone: "info" as const, icon: Lock }
 function IpsCalendario() {
   const { profile } = useAuth();
   const [date, setDate] = useState<Date | undefined>(new Date());
-  // "" = aún no elegido: se usa el primer servicio con precio.
-  const [depMed, setDepMed] = useState("");
   const [depto, setDepto] = useState(profile?.departamento ?? "");
   const [ciudad, setCiudad] = useState(profile?.ciudad ?? "");
   const [horas, setHoras] = useState("08:00, 09:00, 10:00, 14:00, 15:00");
+  // Pacientes que se atienden a la misma hora: un horario (cupo) por cada uno.
+  const [cupos, setCupos] = useState("1");
   const [editando, setEditando] = useState<Slot | null>(null);
   const [eliminando, setEliminando] = useState<Slot | null>(null);
 
@@ -59,22 +59,22 @@ function IpsCalendario() {
   const addSlots = useAddSlots();
   const deleteSlot = useDeleteSlot();
 
-  const servicios = profile?.servicios?.length ? profile.servicios : ["Medicina General"];
+  const servicios = profile?.servicios ?? [];
   const { data: catalogo = [] } = useServicios();
   const { data: misPrecios, isLoading: preciosLoading } = useMisPrecios(profile?.id);
-  /** Precio base del servicio (por nombre) o null si la IPS no lo ha definido. */
-  const precioDe = (nombre: string) => {
+  /** Servicios de mi perfil con precio: las pruebas que puedo atender en un cupo. */
+  const conPrecio = servicios.filter((nombre) => {
     const id = catalogo.find((c) => c.nombre === nombre)?.id;
-    return (id && misPrecios?.get(id)) || null;
-  };
-  const servicioSel = depMed || servicios.find((s) => precioDe(s) != null) || servicios[0];
-  const precioSel = precioDe(servicioSel);
-  const sinPrecio = !preciosLoading && precioSel == null;
+    return !!id && misPrecios?.get(id) != null;
+  });
+  const sinPrecio = !preciosLoading && conPrecio.length === 0;
+  const nCupos = Number(cupos);
+  const cuposError = !/^\d+$/.test(cupos) || nCupos < 1 || nCupos > 20 ? "Usa un número entre 1 y 20." : null;
   const ciudades = DEPARTAMENTOS.find((d) => d.nombre === depto)?.ciudades ?? [];
   const selectedDate = date ? isoLocal(date) : undefined;
   const misSlots = slots
     .filter((s) => !selectedDate || s.fecha === selectedDate)
-    .sort((a, b) => a.hora.localeCompare(b.hora) || a.servicio.localeCompare(b.servicio));
+    .sort((a, b) => a.hora.localeCompare(b.hora) || Number(a.taken) - Number(b.taken));
 
   // Horarios con citas canceladas: se pueden editar, pero no eliminar (la cita conserva la referencia).
   const conHistorial = useMemo(() => new Set(citas.map((c) => c.slot_id)), [citas]);
@@ -88,23 +88,16 @@ function IpsCalendario() {
     if (!date) return toast.error("Selecciona una fecha");
     if (isoLocal(date) < hoyISO()) return toast.error("No puedes agregar horarios en fechas anteriores a hoy");
     if (!ciudad || !depto) return toast.error("Selecciona departamento y ciudad");
-    if (precioSel == null) return toast.error(`Define el precio de ${servicioSel} en tu perfil antes de crear horarios`);
+    if (sinPrecio) return toast.error("Define el precio de al menos un servicio en tu perfil antes de crear horarios");
+    if (cuposError) return toast.error(cuposError);
     const fecha = isoLocal(date);
     const lista = horas.split(",").map((h) => h.trim()).filter(Boolean);
-    addSlots.mutate(
-      lista.map((h) => ({
-        ips_id: profile!.id,
-        fecha,
-        hora: h,
-        servicio: servicioSel,
-        ciudad,
-      })),
-      {
-        onSuccess: () => toast.success(`${lista.length} horarios agregados`),
-        onError: (err: unknown) =>
-          toast.error(esErrorSinPrecio(err) ? `Define el precio de ${servicioSel} en tu perfil antes de crear horarios` : (err as Error).message),
-      }
-    );
+    const nuevos = lista.flatMap((h) => Array.from({ length: nCupos }, () => ({ ips_id: profile!.id, fecha, hora: h, servicio: null, ciudad })));
+    addSlots.mutate(nuevos, {
+      onSuccess: () => toast.success(`${nuevos.length} ${nuevos.length === 1 ? "cupo agregado" : "cupos agregados"}`),
+      onError: (err: unknown) =>
+        toast.error(esErrorSinPrecio(err) ? "Define el precio de al menos un servicio en tu perfil antes de crear horarios" : (err as Error).message),
+    });
   };
 
   const confirmarEliminar = (e: React.MouseEvent) => {
@@ -174,33 +167,27 @@ function IpsCalendario() {
                 </Select>
               </FormField>
             </div>
-            <FormField id="cal-servicio" label="Servicio">
-              <Select value={servicioSel} onValueChange={setDepMed}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {servicios.map((d) => {
-                    const precio = precioDe(d);
-                    return (
-                      <SelectItem key={d} value={d}>
-                        {d} <span className="text-muted-foreground">· {precio != null ? formatPesos(precio) : "sin precio"}</span>
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-            </FormField>
-            {sinPrecio && (
+            {sinPrecio ? (
               <p role="status" className="flex items-start gap-2 rounded-lg bg-warning-soft px-3 py-2 text-[13px] text-warning-foreground">
                 <BadgeDollarSign className="mt-0.5 size-4 shrink-0" aria-hidden />
                 <span>
-                  {servicioSel} no tiene precio. <Link to="/app/perfil" className="font-semibold underline underline-offset-2">Defínelo en tu perfil</Link> para crear horarios de este servicio.
+                  Ningún servicio de tu perfil tiene precio. <Link to="/app/perfil" className="font-semibold underline underline-offset-2">Defínelos en tu perfil</Link> para crear horarios.
                 </span>
               </p>
+            ) : !preciosLoading && (
+              <p className="text-[13px] text-muted-foreground">
+                Cada cupo es para un paciente. En la cita se hacen las pruebas de su evaluación que tú prestas: {conPrecio.join(", ")}.
+              </p>
             )}
-            <FormField id="cal-horas" label="Horas" hint="Formato 24 h, separadas por coma. Ej.: 08:00, 09:30, 14:00">
-              <Input value={horas} onChange={(e) => setHoras(e.target.value)} />
-            </FormField>
-            <Button onClick={handleAdd} disabled={addSlots.isPending || fechaPasada || preciosLoading || sinPrecio} size="lg" className="w-full">
+            <div className="grid grid-cols-[1fr_7rem] gap-3">
+              <FormField id="cal-horas" label="Horas" hint="Formato 24 h, separadas por coma. Ej.: 08:00, 09:30, 14:00">
+                <Input value={horas} onChange={(e) => setHoras(e.target.value)} />
+              </FormField>
+              <FormField id="cal-cupos" label="Cupos por hora" error={cuposError}>
+                <Input inputMode="numeric" value={cupos} onChange={(e) => setCupos(e.target.value.replace(/\D/g, "").slice(0, 2))} />
+              </FormField>
+            </div>
+            <Button onClick={handleAdd} disabled={addSlots.isPending || fechaPasada || preciosLoading || sinPrecio || !!cuposError} size="lg" className="w-full">
               {addSlots.isPending ? <><Loader2 className="animate-spin" /> Guardando…</> : <><Plus /> Agregar horarios</>}
             </Button>
           </CardContent>
@@ -235,22 +222,16 @@ function IpsCalendario() {
                   {misSlots.map((s) => {
                     const bloqueado = s.taken;
                     const historial = !s.taken && conHistorial.has(s.id);
-                    // Precio actual, solo en horarios libres: los agendados conservan el precio del día en que se agendaron.
-                    const precio = !s.taken && !preciosLoading ? precioDe(s.servicio) : null;
+                    // Los horarios anteriores a la migración 020 conservan su servicio.
+                    const etiqueta = s.servicio ?? "Cupo";
                     return (
                       <li key={s.id} className="flex flex-wrap items-center gap-3 py-3 sm:flex-nowrap">
                         <div className="min-w-0 flex-1">
                           <p className="font-semibold tabular-nums">
-                            {formatHora(s.hora)} <span className="font-normal text-muted-foreground">·</span> {s.servicio}
+                            {formatHora(s.hora)} <span className="font-normal text-muted-foreground">·</span> {etiqueta}
                           </p>
                           <p className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
                             {s.ciudad}
-                            {precio != null && <span className="tabular-nums">· {formatPesos(precio)}</span>}
-                            {!s.taken && !preciosLoading && precio == null && (
-                              <span className="inline-flex items-center gap-1 font-medium text-warning-foreground">
-                                <BadgeDollarSign className="size-3" aria-hidden /> Sin precio: no se puede agendar
-                              </span>
-                            )}
                             {historial && (
                               <span className="inline-flex items-center gap-1"><History className="size-3" aria-hidden /> con citas canceladas</span>
                             )}
@@ -269,7 +250,7 @@ function IpsCalendario() {
                             </Tooltip>
                           ) : (
                             <>
-                              <Button variant="ghost" size="sm" onClick={() => setEditando(s)} aria-label={`Editar horario de ${formatHora(s.hora)}, ${s.servicio}`}>
+                              <Button variant="ghost" size="sm" onClick={() => setEditando(s)} aria-label={`Editar ${etiqueta.toLowerCase()} de ${formatHora(s.hora)}`}>
                                 <Pencil /> Editar
                               </Button>
                               {historial ? (
@@ -289,7 +270,7 @@ function IpsCalendario() {
                                   size="sm"
                                   className="text-danger-foreground hover:bg-danger-soft"
                                   onClick={() => setEliminando(s)}
-                                  aria-label={`Eliminar horario de ${formatHora(s.hora)}, ${s.servicio}`}
+                                  aria-label={`Eliminar ${etiqueta.toLowerCase()} de ${formatHora(s.hora)}`}
                                 >
                                   <Trash2 /> Eliminar
                                 </Button>
@@ -309,9 +290,6 @@ function IpsCalendario() {
 
       <EditarSlotDialog
         slot={editando}
-        slots={slots}
-        servicios={servicios}
-        conPrecio={(s) => precioDe(s) != null}
         onClose={() => setEditando(null)}
         onSaved={(fecha) => {
           // Si se movió a otro día, el calendario lo sigue para que el cambio sea visible.
@@ -326,7 +304,7 @@ function IpsCalendario() {
               <AlertDialogHeader>
                 <AlertDialogTitle>¿Eliminar este horario?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Se eliminará el horario de <strong className="text-foreground">{eliminando.servicio}</strong> del{" "}
+                  Se eliminará el {eliminando.servicio ? <>horario de <strong className="text-foreground">{eliminando.servicio}</strong></> : "cupo"} del{" "}
                   <strong className="text-foreground">{formatFecha(eliminando.fecha)}</strong> a las{" "}
                   <strong className="text-foreground">{formatHora(eliminando.hora)}</strong>. Los pacientes ya no podrán reservarlo.
                 </AlertDialogDescription>
@@ -346,12 +324,9 @@ function IpsCalendario() {
 }
 
 function EditarSlotDialog({
-  slot, slots, servicios, conPrecio, onClose, onSaved,
+  slot, onClose, onSaved,
 }: {
   slot: Slot | null;
-  slots: Slot[];
-  servicios: string[];
-  conPrecio: (servicio: string) => boolean;
   onClose: () => void;
   onSaved: (fecha: string) => void;
 }) {
@@ -359,44 +334,35 @@ function EditarSlotDialog({
     <Dialog open={!!slot} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-md">
         {/* key: reinicia el formulario con los datos de cada horario */}
-        {slot && <EditarSlotForm key={slot.id} slot={slot} slots={slots} servicios={servicios} conPrecio={conPrecio} onClose={onClose} onSaved={onSaved} />}
+        {slot && <EditarSlotForm key={slot.id} slot={slot} onClose={onClose} onSaved={onSaved} />}
       </DialogContent>
     </Dialog>
   );
 }
 
 function EditarSlotForm({
-  slot, slots, servicios, conPrecio, onClose, onSaved,
+  slot, onClose, onSaved,
 }: {
   slot: Slot;
-  slots: Slot[];
-  servicios: string[];
-  conPrecio: (servicio: string) => boolean;
   onClose: () => void;
   onSaved: (fecha: string) => void;
 }) {
   const updateSlot = useUpdateSlot();
   const [fecha, setFecha] = useState(slot.fecha);
   const [hora, setHora] = useState(hhmm(slot.hora));
-  const [servicio, setServicio] = useState(slot.servicio);
   const [submitted, setSubmitted] = useState(false);
-  const opciones = servicios.includes(slot.servicio) ? servicios : [slot.servicio, ...servicios];
 
   const hoy = hoyISO();
   const errFecha = !fecha ? "Selecciona una fecha." : fecha < hoy ? "La fecha no puede ser anterior a hoy." : null;
   const errHora = !/^\d{2}:\d{2}$/.test(hora) ? "Ingresa una hora válida." : null;
-  const duplicado = slots.find(
-    (s) => s.id !== slot.id && s.fecha === fecha && hhmm(s.hora) === hora && s.servicio === servicio,
-  );
-  const errDuplicado = duplicado ? `Ya tienes un horario de ${servicio} el ${formatFecha(fecha)} a las ${formatHora(hora)}.` : null;
-  const sinCambios = fecha === slot.fecha && hora === hhmm(slot.hora) && servicio === slot.servicio;
+  const sinCambios = fecha === slot.fecha && hora === hhmm(slot.hora);
 
   const guardar = (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitted(true);
-    if (errFecha || errHora || errDuplicado || sinCambios) return;
+    if (errFecha || errHora || sinCambios) return;
     updateSlot.mutate(
-      { id: slot.id, patch: { fecha, hora, servicio } },
+      { id: slot.id, patch: { fecha, hora } },
       {
         onSuccess: () => {
           toast.success("Horario actualizado");
@@ -404,10 +370,6 @@ function EditarSlotForm({
           onClose();
         },
         onError: (err: unknown) => {
-          if (esErrorSinPrecio(err)) {
-            toast.error(`Define el precio de ${servicio} en tu perfil antes de usarlo en un horario`);
-            return;
-          }
           toast.error(err instanceof SlotTakenError ? err.message : "No se pudo actualizar el horario", {
             description: err instanceof SlotTakenError ? undefined : "Inténtalo de nuevo.",
           });
@@ -422,7 +384,7 @@ function EditarSlotForm({
       <DialogHeader>
         <DialogTitle>Editar horario</DialogTitle>
         <DialogDescription>
-          Actual: {formatFecha(slot.fecha)}, {formatHora(slot.hora)} · {slot.servicio}
+          Actual: {formatFecha(slot.fecha)}, {formatHora(slot.hora)}{slot.servicio ? ` · ${slot.servicio}` : ""}
         </DialogDescription>
       </DialogHeader>
       <div className="my-5 space-y-4">
@@ -434,26 +396,10 @@ function EditarSlotForm({
             <Input type="time" step={300} value={hora} onChange={(e) => setHora(e.target.value)} />
           </FormField>
         </div>
-        <FormField id="edit-servicio" label="Servicio" required>
-          <Select value={servicio} onValueChange={setServicio}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {/* Solo se puede cambiar a un servicio con precio; el actual se conserva aunque no lo tenga. */}
-              {opciones.map((d) => (
-                <SelectItem key={d} value={d} disabled={d !== slot.servicio && !conPrecio(d)}>
-                  {d}{!conPrecio(d) && <span className="text-muted-foreground"> · sin precio</span>}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </FormField>
-        {errDuplicado && (
-          <p role="alert" className="rounded-lg bg-warning-soft px-3 py-2 text-[13px] font-medium text-warning-foreground">{errDuplicado}</p>
-        )}
       </div>
       <DialogFooter className="gap-2">
         <Button type="button" variant="outline" onClick={onClose} disabled={updateSlot.isPending}>Cancelar</Button>
-        <Button type="submit" disabled={updateSlot.isPending || sinCambios || !!errDuplicado}>
+        <Button type="submit" disabled={updateSlot.isPending || sinCambios}>
           {updateSlot.isPending ? <><Loader2 className="animate-spin" /> Guardando…</> : "Guardar cambios"}
         </Button>
       </DialogFooter>

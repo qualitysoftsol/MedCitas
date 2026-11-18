@@ -14,13 +14,13 @@ import { PageHeader } from "@/components/app/PageHeader";
 import { FormField, IconInput } from "@/components/app/FormField";
 import { useAuth } from "@/lib/auth-context";
 import { useAvailableSlots } from "@/lib/hooks/useSlots";
-import { useBookAppointment, useBookAppointmentsBatch } from "@/lib/hooks/useAppointments";
+import { errorAgendar, useAgendarCitaEmpresa, useAgendarLoteEmpresa } from "@/lib/hooks/useAppointments";
 import { useTiposEvaluacion } from "@/lib/hooks/useCatalogos";
-import { esErrorSinPrecio } from "@/lib/hooks/usePrecios";
 import { capitalizar, fechaPartes, formatFecha, formatFechaCorta, formatHora, formatPesos, hoyISO } from "@/lib/format";
 import { ConfirmRow, Resumen, StepHeading, Stepper, SuccessCard, TotalRow, WizardNav, type WizardStep } from "@/components/solicitar/WizardParts";
 import { HorarioPicker, IpsStep, TipoExamenPicker, UbicacionStep } from "@/components/solicitar/Steps";
 import { esFuturo, useIpsSearch, type LatLng } from "@/components/solicitar/useIpsSearch";
+import { useEvaluacion } from "@/components/solicitar/useEvaluacion";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/app/empresa/solicitar")({
@@ -66,18 +66,11 @@ function parsearArchivo(text: string): { empleados: Empleado[]; ignoradas: numbe
   return { empleados, ignoradas };
 }
 
-/** Valor unitario y total de las citas masivas (los horarios pueden ser de servicios con distinto precio). */
-interface ValoresMasivo { total: number; min: number; max: number }
-function valoresDe(precios: (number | null)[]): ValoresMasivo | null {
-  const v = precios.filter((p): p is number => p != null);
-  if (v.length === 0) return null;
-  return { total: v.reduce((a, b) => a + b, 0), min: Math.min(...v), max: Math.max(...v) };
-}
+/** Valor por cita y total de las citas masivas (todas tienen las mismas pruebas en la misma IPS). */
+interface ValoresMasivo { total: number; unitario: number }
 
-/** "$ 85.000" si todas las citas valen igual; "$ 60.000 a $ 85.000" si no. */
-function valorUnitario(v: ValoresMasivo) {
-  return v.min === v.max ? formatPesos(v.min) : `${formatPesos(v.min)} a ${formatPesos(v.max)}`;
-}
+/** Tipos de evaluación que se pueden agendar en lote (agendar_lote_empresa, migración 020). */
+const TIPOS_LOTE = ["PRE_INGRESO", "PERIODICA", "EGRESO"];
 
 function descargarPlantilla() {
   const blob = new Blob(["Nombre;Cedula\nAna María Pérez;1012345678\nCarlos Rodríguez;79876543\n"], { type: "text/plain;charset=utf-8" });
@@ -119,27 +112,33 @@ function EmpresaSolicitar() {
   const [bookError, setBookError] = useState<string | null>(null);
 
   const qc = useQueryClient();
-  const bookAppointment = useBookAppointment();
-  const bookAppointmentsBatch = useBookAppointmentsBatch();
+  const agendarCita = useAgendarCitaEmpresa();
+  const agendarLote = useAgendarLoteEmpresa();
   const { data: tiposExamen = [], isLoading: tiposLoading } = useTiposEvaluacion();
-  // Solo los tipos habilitados para empresas en el catálogo (p. ej. "Retiro" es exclusivo de empresas).
-  const tiposDisponibles = useMemo(() => tiposExamen.filter((t) => t.roles_permitidos.includes("empresa")), [tiposExamen]);
+  // Los tipos habilitados para empresas en el catálogo; en lote, solo los que no dependen de fechas de cada persona.
+  const tiposDisponibles = useMemo(
+    () => tiposExamen.filter((t) => t.roles_permitidos.includes("empresa") && (modo === "individual" || TIPOS_LOTE.includes(t.codigo))),
+    [tiposExamen, modo],
+  );
+  const tipoSel = tiposDisponibles.find((t) => t.codigo === tipoExamen) ?? null;
 
   useEffect(() => {
-    if (tiposDisponibles.length > 0 && !tipoExamen) setTipoExamen(tiposDisponibles[0].nombre);
+    if (tiposDisponibles.length > 0 && !tiposDisponibles.some((t) => t.codigo === tipoExamen)) setTipoExamen(tiposDisponibles[0].codigo);
   }, [tiposDisponibles, tipoExamen]);
 
-  const search = useIpsSearch({ depto, ciudad, userLoc, filtro, selectedIps });
+  const evaluacion = useEvaluacion();
+  const search = useIpsSearch({ depto, ciudad, userLoc, filtro, selectedIps, pruebas: evaluacion.pruebas });
   const hoy = hoyISO();
   const { data: slotsRaw = [], isLoading: slotsLoading, refetch: refetchSlots } = useAvailableSlots(selectedIps);
-  // Solo horarios futuros (antes la asignación masiva podía tomar horarios ya vencidos)
-  // y con precio (sin precio no se pueden agendar).
-  const { precioDe } = search;
-  const slotsIps = useMemo(() => slotsRaw.filter((s) => esFuturo(s, hoy) && precioDe(s) != null), [slotsRaw, hoy, precioDe]);
+  // Solo horarios futuros (antes la asignación masiva podía tomar horarios ya vencidos).
+  const slotsIps = useMemo(() => slotsRaw.filter((s) => esFuturo(s, hoy)), [slotsRaw, hoy]);
 
   const ipsSel = search.ipsEnCiudad.find((i) => i.id === selectedIps) ?? null;
   const slotSel = slotsIps.find((s) => s.id === selectedSlot) ?? null;
-  const valorSel = slotSel ? precioDe(slotSel) : null;
+  // Pruebas que hace la IPS elegida y su total por persona (precio + comisión).
+  const cobertura = search.coberturaDe(selectedIps);
+  const valorSel = cobertura && cobertura.hechas.length > 0 ? cobertura.total : null;
+  const resumenPruebas = cobertura?.hechas.map((p) => p.nombre).join(", ") ?? "";
 
   // Asignación masiva: el empleado i recibe el horario libre i, en orden cronológico.
   const pares = useMemo(
@@ -148,7 +147,7 @@ function EmpresaSolicitar() {
   );
   const conSlot = pares.filter((p) => p.slot).length;
   const sinSlot = pares.length - conSlot;
-  const valoresMasivo = useMemo(() => valoresDe(pares.map((p) => (p.slot ? precioDe(p.slot) : null))), [pares, precioDe]);
+  const valoresMasivo: ValoresMasivo | null = valorSel != null && conSlot > 0 ? { total: valorSel * conSlot, unitario: valorSel } : null;
   const duplicadas = useMemo(() => {
     const vistos = new Set<string>(); const dup = new Set<string>();
     archivoEmpleados.forEach((e) => { if (vistos.has(e.cedula)) dup.add(e.cedula); vistos.add(e.cedula); });
@@ -157,7 +156,7 @@ function EmpresaSolicitar() {
 
   const nombreError = !empleadoNombre.trim() ? "Ingresa el nombre del empleado." : null;
   const cedulaError = !empleadoCedula.trim() ? "Ingresa la cédula del empleado." : null;
-  const tipoError = !tipoExamen ? "Selecciona el motivo de la evaluación." : null;
+  const tipoError = !tipoSel ? "Selecciona el motivo de la evaluación." : null;
   const archivoFalta = archivoEmpleados.length === 0 ? "Carga un archivo con al menos un empleado." : null;
   const paso1Ok = modo === "individual" ? !nombreError && !cedulaError && !tipoError : !archivoFalta && !tipoError;
   const canNext: Record<number, boolean> = {
@@ -234,46 +233,38 @@ function EmpresaSolicitar() {
   };
   const elegirIps = (id: string) => { selectIps(id); setMaxStep(3); goTo(4); };
 
-  const manejarError = (err: any, masivo: boolean) => {
-    const tomado = err?.code === "23505" || /duplicate|unique/i.test(err?.message ?? "");
-    const sinPrecio = esErrorSinPrecio(err);
-    const msg = tomado
+  const manejarError = (err: unknown, masivo: boolean) => {
+    const { codigo, mensaje } = errorAgendar(err);
+    const msg = codigo === "HORARIO_TOMADO"
       ? masivo
-        ? "Algunos horarios acaban de ser tomados. Actualizamos la disponibilidad: revisa la asignación."
+        ? "Algunos horarios acaban de ser tomados. Volvimos a repartir los cupos libres: revisa la asignación."
         : "Ese horario ya no está disponible. Elige otro, por favor."
-      : sinPrecio
-        ? masivo
-          ? "Algunos servicios ya no tienen precio en esta IPS. Actualizamos la disponibilidad: revisa la asignación."
-          : "Ese servicio ya no tiene precio en esta IPS. Elige otro horario, por favor."
-        : err?.message?.includes("Failed to fetch")
+      : codigo === "SIN_PRUEBAS" || codigo === "PRUEBAS_INCOMPLETAS" || codigo === "DATOS_INVALIDOS"
+        ? mensaje
+        : mensaje.includes("Failed to fetch")
           ? "Sin conexión. Revisa tu internet e inténtalo de nuevo."
           : masivo ? "No pudimos agendar las citas. Inténtalo de nuevo." : "No pudimos agendar la cita. Inténtalo de nuevo.";
     setBookError(msg);
     toast.error(msg);
-    if (tomado || sinPrecio) { setSelectedSlot(null); void refetchSlots(); void qc.invalidateQueries({ queryKey: ["precios-servicios"] }); setStep(4); }
+    // La asignación masiva se recalcula sola con los cupos que siguen libres.
+    if (codigo === "HORARIO_TOMADO") { setSelectedSlot(null); void refetchSlots(); setStep(4); }
+    if (codigo === "SIN_PRUEBAS" || codigo === "PRUEBAS_INCOMPLETAS") { setSelectedSlot(null); void qc.invalidateQueries({ queryKey: ["precios-servicios"] }); setStep(3); }
   };
 
   const submit = () => {
     setBookError(null);
-    if (!slotSel || !profile) return;
+    if (!slotSel || !profile || !tipoSel) return;
     const empleado = { nombre: empleadoNombre.trim(), cedula: empleadoCedula.trim() };
-    bookAppointment.mutate({
-      slot_id: slotSel.id,
+    agendarCita.mutate({
       ips_id: slotSel.ips_id,
-      solicitante_id: profile.id,
-      empleado_nombre: empleado.nombre,
-      empleado_cedula: empleado.cedula,
-      tipo_examen: tipoExamen,
-      fecha: slotSel.fecha,
-      hora: slotSel.hora,
-      ciudad: slotSel.ciudad,
-      servicio: slotSel.servicio,
+      tipo_evaluacion: tipoSel.codigo,
+      cita: { slot_id: slotSel.id, empleado_nombre: empleado.nombre, empleado_cedula: empleado.cedula, enfasis_ids: evaluacion.enfasisIds },
     }, {
       onSuccess: () => {
         toast.success("Cita agendada");
         setDone({
           modo: "individual", empleado, fecha: slotSel.fecha, hora: slotSel.hora, ips: ipsSel?.nombre ?? "",
-          tipo: tipoExamen, servicio: slotSel.servicio, direccion: ipsSel?.direccion ?? null, ciudad: slotSel.ciudad, valor: valorSel,
+          tipo: tipoSel.nombre, servicio: resumenPruebas, direccion: ipsSel?.direccion ?? null, ciudad: slotSel.ciudad, valor: valorSel,
         });
       },
       onError: (err) => manejarError(err, false),
@@ -282,26 +273,20 @@ function EmpresaSolicitar() {
 
   const submitMasivo = () => {
     setBookError(null);
-    if (!profile) return;
+    if (!profile || !selectedIps || !tipoSel) return;
     const validas = pares.filter((p): p is { empleado: Empleado; slot: Slot } => p.slot !== null);
     if (validas.length === 0) return toast.error("No hay horarios disponibles para esta IPS");
     const citas = validas.map(({ empleado, slot }) => ({
       slot_id: slot.id,
-      ips_id: slot.ips_id,
-      solicitante_id: profile.id,
       empleado_nombre: empleado.nombre,
       empleado_cedula: empleado.cedula,
-      tipo_examen: tipoExamen,
-      fecha: slot.fecha,
-      hora: slot.hora,
-      ciudad: slot.ciudad,
-      servicio: slot.servicio,
+      enfasis_ids: evaluacion.enfasisIds,
     }));
-    bookAppointmentsBatch.mutate(citas, {
+    agendarLote.mutate({ ips_id: selectedIps, tipo_evaluacion: tipoSel.codigo, citas }, {
       onSuccess: () => {
         toast.success(`${citas.length} cita(s) agendada(s)`);
         setDone({
-          modo: "masivo", agendadas: citas.length, ips: ipsSel?.nombre ?? "", tipo: tipoExamen,
+          modo: "masivo", agendadas: citas.length, ips: ipsSel?.nombre ?? "", tipo: tipoSel.nombre,
           sinHorario: pares.filter((p) => !p.slot).map((p) => p.empleado), valores: valoresMasivo,
         });
       },
@@ -320,7 +305,7 @@ function EmpresaSolicitar() {
     modo === "individual"
       ? { icon: UserRound, label: "Empleado", value: empleadoNombre.trim() ? `${empleadoNombre.trim()}${empleadoCedula ? ` · ${empleadoCedula}` : ""}` : null }
       : { icon: Users, label: "Empleados", value: archivoEmpleados.length ? `${archivoEmpleados.length} desde ${archivoNombre ?? "archivo"}` : null },
-    { icon: ClipboardList, label: "Examen", value: tipoExamen ? `Examen de ${tipoExamen.toLowerCase()}` : null },
+    { icon: ClipboardList, label: "Evaluación", value: tipoSel?.nombre ?? null },
     { icon: MapPin, label: "Ciudad", value: ciudad || null },
     { icon: Building2, label: "IPS", value: ipsSel?.nombre ?? null },
     modo === "individual"
@@ -328,7 +313,7 @@ function EmpresaSolicitar() {
       : { icon: ListChecks, label: "Horarios asignados", value: selectedIps && !slotsLoading ? `${conSlot} de ${pares.length}` : null },
     modo === "individual"
       ? { icon: Wallet, label: "Valor", value: valorSel != null ? formatPesos(valorSel) : null }
-      : { icon: Wallet, label: "Valor total", value: selectedIps && valoresMasivo ? `${formatPesos(valoresMasivo.total)} · ${valorUnitario(valoresMasivo)} c/u` : null },
+      : { icon: Wallet, label: "Valor total", value: selectedIps && valoresMasivo ? `${formatPesos(valoresMasivo.total)} · ${formatPesos(valoresMasivo.unitario)} c/u` : null },
   ];
 
   const primerAsignado = pares.find((p) => p.slot)?.slot ?? null;
@@ -492,6 +477,7 @@ function EmpresaSolicitar() {
             onElegir={elegirIps}
             onCambiarCiudad={() => setStep(2)}
             cuposNecesarios={modo === "masivo" ? archivoEmpleados.length : undefined}
+            requiereTodas={modo === "masivo"}
           />
         )}
 
@@ -511,8 +497,7 @@ function EmpresaSolicitar() {
                 {modo === "individual" ? (
                   <HorarioPicker
                     slots={slotsIps}
-                    loading={slotsLoading || search.preciosLoading}
-                    precioDe={precioDe}
+                    loading={slotsLoading}
                     selectedSlot={selectedSlot}
                     onSelectSlot={setSelectedSlot}
                     selectedFecha={selectedFecha}
@@ -522,10 +507,9 @@ function EmpresaSolicitar() {
                 ) : (
                   <AsignacionMasiva
                     pares={pares}
-                    loading={slotsLoading || search.preciosLoading}
+                    loading={slotsLoading}
                     conSlot={conSlot}
                     sinSlot={sinSlot}
-                    precioDe={precioDe}
                     valores={valoresMasivo}
                     onOtraIps={() => setStep(3)}
                   />
@@ -555,16 +539,16 @@ function EmpresaSolicitar() {
                     </div>
                     <div>
                       <p className="text-lg font-semibold">{capitalizar(formatFecha(slotSel.fecha))}</p>
-                      <p className="opacity-90">{formatHora(slotSel.hora)} · {slotSel.servicio}</p>
+                      <p className="opacity-90">{formatHora(slotSel.hora)} · {ipsSel?.nombre}</p>
                     </div>
                   </div>
                   <dl className="divide-y rounded-xl border">
                     <ConfirmRow icon={UserRound} label="Empleado" value={`${empleadoNombre.trim()} · ${empleadoCedula.trim()}`} onEdit={() => setStep(1)} />
-                    <ConfirmRow icon={ClipboardList} label="Examen" value={`Examen de ${tipoExamen.toLowerCase()}`} onEdit={() => setStep(1)} />
+                    <ConfirmRow icon={ClipboardList} label="Evaluación" value={tipoSel?.nombre ?? ""} sub={resumenPruebas} onEdit={() => setStep(1)} />
                     <ConfirmRow icon={Building2} label="IPS" value={ipsSel?.nombre ?? ""} sub={[ipsSel?.direccion, slotSel.ciudad].filter(Boolean).join(" · ")} onEdit={() => setStep(3)} />
                     <ConfirmRow icon={CalendarClock} label="Fecha y hora" value={`${formatFechaCorta(slotSel.fecha)}, ${formatHora(slotSel.hora)}`} onEdit={() => setStep(4)} />
                   </dl>
-                  {valorSel != null && <TotalRow valor={valorSel} detalle={slotSel.servicio} />}
+                  {valorSel != null && <TotalRow valor={valorSel} detalle={`${cobertura!.hechas.length} ${cobertura!.hechas.length === 1 ? "prueba" : "pruebas"}`} />}
                 </>
               ) : (
                 <>
@@ -583,10 +567,10 @@ function EmpresaSolicitar() {
                   </div>
                   <dl className="divide-y rounded-xl border">
                     <ConfirmRow icon={Users} label="Empleados" value={`${conSlot} de ${pares.length} con horario`} sub={archivoNombre ?? undefined} onEdit={() => setStep(1)} />
-                    <ConfirmRow icon={ClipboardList} label="Examen" value={`Examen de ${tipoExamen.toLowerCase()}`} onEdit={() => setStep(1)} />
+                    <ConfirmRow icon={ClipboardList} label="Evaluación" value={tipoSel?.nombre ?? ""} sub={resumenPruebas} onEdit={() => setStep(1)} />
                     <ConfirmRow icon={Building2} label="IPS" value={ipsSel?.nombre ?? ""} sub={[ipsSel?.direccion, ciudad].filter(Boolean).join(" · ")} onEdit={() => setStep(3)} />
                     <ConfirmRow icon={ListChecks} label="Asignación" value="Horarios en orden cronológico" onEdit={() => setStep(4)} />
-                    {valoresMasivo && <ConfirmRow icon={Wallet} label="Valor por cita" value={valorUnitario(valoresMasivo)} />}
+                    {valoresMasivo && <ConfirmRow icon={Wallet} label="Valor por cita" value={formatPesos(valoresMasivo.unitario)} />}
                   </dl>
                   {valoresMasivo && (
                     <TotalRow valor={valoresMasivo.total} detalle={`${conSlot} ${conSlot === 1 ? "cita" : "citas"}`} />
@@ -616,12 +600,12 @@ function EmpresaSolicitar() {
         nextDisabled={(step === 3 && !selectedIps) || (step === 4 && modo === "masivo" && !slotsLoading && conSlot === 0)}
         finalAction={
           modo === "individual" ? (
-            <Button onClick={submit} size="lg" disabled={bookAppointment.isPending || !slotSel}>
-              {bookAppointment.isPending ? <><Loader2 className="animate-spin" /> Agendando…</> : <><Check /> Confirmar cita</>}
+            <Button onClick={submit} size="lg" disabled={agendarCita.isPending || !slotSel}>
+              {agendarCita.isPending ? <><Loader2 className="animate-spin" /> Agendando…</> : <><Check /> Confirmar cita</>}
             </Button>
           ) : (
-            <Button onClick={submitMasivo} size="lg" disabled={bookAppointmentsBatch.isPending || conSlot === 0}>
-              {bookAppointmentsBatch.isPending ? <><Loader2 className="animate-spin" /> Agendando…</> : <><Check /> Agendar {conSlot} {conSlot === 1 ? "cita" : "citas"}</>}
+            <Button onClick={submitMasivo} size="lg" disabled={agendarLote.isPending || conSlot === 0}>
+              {agendarLote.isPending ? <><Loader2 className="animate-spin" /> Agendando…</> : <><Check /> Agendar {conSlot} {conSlot === 1 ? "cita" : "citas"}</>}
             </Button>
           )
         }
@@ -631,20 +615,17 @@ function EmpresaSolicitar() {
 }
 
 function AsignacionMasiva({
-  pares, loading, conSlot, sinSlot, precioDe, valores, onOtraIps,
+  pares, loading, conSlot, sinSlot, valores, onOtraIps,
 }: {
   pares: { empleado: Empleado; slot: Slot | null }[];
   loading: boolean;
   conSlot: number;
   sinSlot: number;
-  precioDe: (s: Slot) => number | null;
   valores: ValoresMasivo | null;
   onOtraIps: () => void;
 }) {
-  const valorDe = (slot: Slot) => {
-    const v = precioDe(slot);
-    return v != null ? formatPesos(v) : "—";
-  };
+  // Todas las citas tienen las mismas pruebas en la misma IPS: el mismo valor.
+  const valorDe = () => (valores ? formatPesos(valores.unitario) : "—");
   if (loading) return <p className="py-6 text-center text-sm text-muted-foreground" role="status">Calculando la asignación…</p>;
   if (conSlot === 0) {
     return (
@@ -692,12 +673,12 @@ function AsignacionMasiva({
                 <td className="px-4 py-2.5 tabular-nums text-muted-foreground">{empleado.cedula}</td>
                 <td className="px-4 py-2.5">
                   {slot ? (
-                    <span className="whitespace-nowrap">{formatFechaCorta(slot.fecha)} · {formatHora(slot.hora)} <span className="text-muted-foreground">· {slot.servicio}</span></span>
+                    <span className="whitespace-nowrap">{formatFechaCorta(slot.fecha)} · {formatHora(slot.hora)}</span>
                   ) : (
                     <span className="inline-flex items-center gap-1 text-[13px] font-medium text-warning-foreground"><AlertTriangle className="size-3.5" aria-hidden /> Sin horario disponible</span>
                   )}
                 </td>
-                <td className="whitespace-nowrap px-4 py-2.5 text-right tabular-nums">{slot ? valorDe(slot) : "—"}</td>
+                <td className="whitespace-nowrap px-4 py-2.5 text-right tabular-nums">{slot ? valorDe() : "—"}</td>
               </tr>
             ))}
           </tbody>
@@ -720,9 +701,9 @@ function AsignacionMasiva({
               <span className="tabular-nums text-sm text-muted-foreground">{empleado.cedula}</span>
             </div>
             <p className={cn("mt-0.5 text-[13px]", slot ? "text-muted-foreground" : "font-medium text-warning-foreground")}>
-              {slot ? `${formatFechaCorta(slot.fecha)} · ${formatHora(slot.hora)} · ${slot.servicio}` : "Sin horario disponible"}
+              {slot ? `${formatFechaCorta(slot.fecha)} · ${formatHora(slot.hora)}` : "Sin horario disponible"}
             </p>
-            {slot && <p className="mt-0.5 text-sm font-semibold tabular-nums">{valorDe(slot)}</p>}
+            {slot && <p className="mt-0.5 text-sm font-semibold tabular-nums">{valorDe()}</p>}
           </li>
         ))}
         {valores && (
@@ -772,7 +753,7 @@ function Exito({ resultado, headingRef, onOtra }: { resultado: Resultado; headin
     >
       {r.valores && (
         <dl className="space-y-3 rounded-xl border p-4 text-sm">
-          <div className="flex justify-between gap-4"><dt className="text-muted-foreground">Valor por cita</dt><dd className="text-right font-medium tabular-nums">{valorUnitario(r.valores)}</dd></div>
+          <div className="flex justify-between gap-4"><dt className="text-muted-foreground">Valor por cita</dt><dd className="text-right font-medium tabular-nums">{formatPesos(r.valores.unitario)}</dd></div>
           <div className="flex justify-between gap-4 border-t pt-3"><dt className="font-semibold">Valor total · {r.agendadas} {r.agendadas === 1 ? "cita" : "citas"}</dt><dd className="text-right text-base font-bold tabular-nums">{formatPesos(r.valores.total)}</dd></div>
         </dl>
       )}

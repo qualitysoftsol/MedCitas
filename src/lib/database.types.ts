@@ -44,7 +44,8 @@ export type Database = {
           ips_id: string
           fecha: string
           hora: string
-          servicio: string
+          /** null = cupo para cualquier evaluación (migración 020). Los horarios antiguos conservan su servicio. */
+          servicio: string | null
           ciudad: string
           taken: boolean
           created_at: string
@@ -66,11 +67,18 @@ export type Database = {
           fecha: string
           hora: string
           ciudad: string
+          /** Resumen de las pruebas de la cita ("Evaluación médica ocupacional, Audiometría"). */
           servicio: string
           estado: 'pendiente_pago' | 'agendada' | 'atendida' | 'cancelada' | 'expirada'
+          /** Datos que pide el tipo de evaluación (migración 020). */
+          datos_evaluacion: Record<string, unknown>
+          /** Nombres de los énfasis al momento de agendar. */
+          enfasis: string[] | null
+          cargo: string | null
           created_at: string
         }
-        Insert: Omit<Database['public']['Tables']['appointments']['Row'], 'id' | 'created_at' | 'estado' | 'tipo_evaluacion'> & { tipo_evaluacion?: string | null }
+        // Se crean con las funciones agendar_cita_empresa, agendar_lote_empresa y crear_cita_interna.
+        Insert: never
         Update: Partial<Database['public']['Tables']['appointments']['Row']>
       }
       resultados: {

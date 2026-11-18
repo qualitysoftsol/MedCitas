@@ -314,7 +314,7 @@ function ResultadoDialog({
                   </div>
                 ) : (
                   <div>
-                    <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Servicio</dt>
+                    <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Pruebas</dt>
                     <dd className="mt-0.5 flex items-center gap-1.5 font-medium"><Stethoscope className="size-4 text-muted-foreground" aria-hidden />{item.servicio}</dd>
                   </div>
                 )}

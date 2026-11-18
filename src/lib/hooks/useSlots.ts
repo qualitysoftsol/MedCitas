@@ -49,7 +49,7 @@ export class SlotTakenError extends Error {
   }
 }
 
-type SlotPatch = Pick<Slot, 'fecha' | 'hora' | 'servicio'>
+type SlotPatch = Pick<Slot, 'fecha' | 'hora'>
 
 /**
  * Edita un horario libre. El filtro `taken = false` en la misma consulta evita

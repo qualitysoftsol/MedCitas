@@ -28,6 +28,7 @@ export function TipoExamenPicker({
 }: {
   tipos: TipoEvaluacion[];
   loading: boolean;
+  /** Código del tipo elegido. */
   value: string;
   onChange: (v: string) => void;
   error?: string | null;
@@ -42,7 +43,7 @@ export function TipoExamenPicker({
       ) : (
         <div className={cn("grid gap-3", tipos.length > 2 ? "sm:grid-cols-3" : "sm:grid-cols-2")} role="radiogroup" aria-label="Motivo de la evaluación">
           {tipos.map((t) => {
-            const active = value === t.nombre;
+            const active = value === t.codigo;
             return (
               <label
                 key={t.id}
@@ -51,7 +52,7 @@ export function TipoExamenPicker({
                   active ? "border-primary bg-primary-soft" : "border-border hover:border-primary/40",
                 )}
               >
-                <input type="radio" name="tipo-examen" value={t.nombre} checked={active} onChange={() => onChange(t.nombre)} className="sr-only" />
+                <input type="radio" name="tipo-examen" value={t.codigo} checked={active} onChange={() => onChange(t.codigo)} className="sr-only" />
                 <span className={cn("flex size-5 shrink-0 items-center justify-center rounded-full border-2", active ? "border-primary bg-primary" : "border-input")} aria-hidden>
                   {active && <span className="size-2 rounded-full bg-white" />}
                 </span>
@@ -183,7 +184,7 @@ export function UbicacionStep({
 // ─── Paso: Selección de IPS ───────────────────────────────────────────────────
 
 export function IpsStep({
-  headingRef, step, total, ciudad, userLoc, search, filtro, setFiltro, selectedIps, onSelect, onElegir, onCambiarCiudad, cuposNecesarios,
+  headingRef, step, total, ciudad, userLoc, search, filtro, setFiltro, selectedIps, onSelect, onElegir, onCambiarCiudad, cuposNecesarios, requiereTodas,
 }: {
   headingRef: RefObject<HTMLHeadingElement | null>;
   step: WizardStep;
@@ -199,10 +200,18 @@ export function IpsStep({
   onCambiarCiudad: () => void;
   /** Citas masivas: cantidad de empleados, para indicar si los horarios de cada IPS alcanzan. */
   cuposNecesarios?: number;
+  /** Citas masivas: solo se puede elegir una IPS que haga todas las pruebas. */
+  requiereTodas?: boolean;
 }) {
   const [detailIps, setDetailIps] = useState<string | null>(null);
-  const { lineas, catalogoServicios, ipsEnCiudad, ipsLoading, ipsError, refetchIps, portadaUrl, disponibilidad, libresLoading, ipsConDistancia, markers, centro } = search;
+  const { lineas, catalogoServicios, ipsEnCiudad, ipsLoading, ipsError, refetchIps, portadaUrl, disponibilidad, libresLoading, ipsConDistancia, markers, centro, coberturaDe } = search;
   const ipsSel = ipsEnCiudad.find((i) => i.id === selectedIps) ?? null;
+  /** Se puede elegir: tiene cupos y hace las pruebas que hacen falta. */
+  const elegible = (id: string) => {
+    const c = coberturaDe(id);
+    if (!c || c.hechas.length === 0 || (requiereTodas && c.faltan.length > 0)) return false;
+    return libresLoading || !!disponibilidad.get(id);
+  };
   const toggle = (nombre: string) => setFiltro(filtro.includes(nombre) ? filtro.filter((x) => x !== nombre) : [...filtro, nombre]);
 
   const seleccionar = (id: string) => {
@@ -257,6 +266,7 @@ export function IpsStep({
                 {ipsConDistancia.map(({ ips, distancia }) => {
                   const active = selectedIps === ips.id;
                   const disp = disponibilidad.get(ips.id);
+                  const cob = coberturaDe(ips.id);
                   const clasif = derivarLineas(ips.servicios ?? [], catalogoServicios);
                   const insuficiente = !!cuposNecesarios && !!disp && disp.count < cuposNecesarios;
                   return (
@@ -297,6 +307,22 @@ export function IpsStep({
                                 </span>
                               )}
                             </span>
+                            {cob && !search.preciosLoading && (
+                              <span className="mt-1 block text-xs">
+                                {cob.hechas.length === 0 ? (
+                                  <span className="font-medium text-warning-foreground">No hace las pruebas de esta evaluación</span>
+                                ) : cob.faltan.length === 0 ? (
+                                  <span className="text-muted-foreground">
+                                    Hace {cob.hechas.length === 1 ? "la prueba" : `las ${cob.hechas.length} pruebas`} · Total <strong className="tabular-nums text-foreground">{formatPesos(cob.total)}</strong>
+                                  </span>
+                                ) : (
+                                  <span className="font-medium text-warning-foreground">
+                                    Hace {cob.hechas.length} de {cob.hechas.length + cob.faltan.length} pruebas. Falta: {cob.faltan.join(", ")}.
+                                    {requiereTodas ? " Elige una IPS que haga todas." : ` Total ${formatPesos(cob.total)}.`}
+                                  </span>
+                                )}
+                              </span>
+                            )}
                           </span>
                         </button>
                         {clasif.length > 0 && (
@@ -311,7 +337,7 @@ export function IpsStep({
                           <Button size="sm" variant="ghost" onClick={() => setDetailIps(ips.id)}>
                             <Eye /> Ver detalles
                           </Button>
-                          <Button size="sm" variant={active ? "default" : "outline"} onClick={() => onElegir(ips.id)} disabled={!libresLoading && !disp}>
+                          <Button size="sm" variant={active ? "default" : "outline"} onClick={() => onElegir(ips.id)} disabled={!elegible(ips.id)}>
                             {active ? <Check /> : null} Elegir
                           </Button>
                         </div>
@@ -333,7 +359,7 @@ export function IpsStep({
                 <p className="text-xs text-muted-foreground">IPS seleccionada</p>
                 <p className="truncate font-semibold">{ipsSel.nombre}</p>
               </div>
-              <Button onClick={() => onElegir(ipsSel.id)} disabled={!libresLoading && !disponibilidad.get(ipsSel.id)}>
+              <Button onClick={() => onElegir(ipsSel.id)} disabled={!elegible(ipsSel.id)}>
                 Continuar <ChevronRight />
               </Button>
             </div>
@@ -369,7 +395,7 @@ export function IpsStep({
 // ─── Selector de día y hora ───────────────────────────────────────────────────
 
 export function HorarioPicker({
-  slots, loading, selectedSlot, onSelectSlot, selectedFecha, onSelectFecha, onOtraIps, precioDe,
+  slots, loading, selectedSlot, onSelectSlot, selectedFecha, onSelectFecha, onOtraIps,
 }: {
   slots: Slot[];
   loading: boolean;
@@ -378,8 +404,6 @@ export function HorarioPicker({
   selectedFecha: string | null;
   onSelectFecha: (f: string) => void;
   onOtraIps: () => void;
-  /** Valor final del horario (precio + comisión). */
-  precioDe: (s: Slot) => number | null;
 }) {
   const fechas = Array.from(new Set(slots.map((s) => s.fecha)));
   const fechaActiva = selectedFecha && fechas.includes(selectedFecha) ? selectedFecha : fechas[0] ?? null;
@@ -434,7 +458,6 @@ export function HorarioPicker({
         <div role="radiogroup" aria-label="Horas disponibles" className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
           {horasDelDia.map((s) => {
             const active = selectedSlot === s.id;
-            const precio = precioDe(s);
             return (
               <button
                 key={s.id}
@@ -450,8 +473,6 @@ export function HorarioPicker({
                   <Clock className={cn("size-4", active ? "text-accent-foreground" : "text-muted-foreground")} aria-hidden />
                   {formatHora(s.hora)}
                 </span>
-                <span className="mt-0.5 block truncate text-xs text-muted-foreground">{s.servicio}</span>
-                {precio != null && <span className="mt-1 block text-sm font-semibold tabular-nums">{formatPesos(precio)}</span>}
               </button>
             );
           })}

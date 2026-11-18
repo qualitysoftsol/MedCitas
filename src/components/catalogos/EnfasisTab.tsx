@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Check, Grid3x3, Loader2, Pencil, Plus, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import type { Enfasis, Servicio, TipoServicio } from "@/lib/database.types";
+import type { Enfasis, Servicio } from "@/lib/database.types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -9,15 +9,11 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { FormField } from "@/components/app/FormField";
 import { EmptyState } from "@/components/app/EmptyState";
 import {
-  useDeleteEnfasis, useEnfasis, useGuardarEnfasis, useServicios, useToggleEnfasisServicio,
+  ordenarServicios, useDeleteEnfasis, useEnfasis, useGuardarEnfasis, useServicios, useToggleEnfasisServicio,
 } from "@/lib/hooks/useCatalogos";
 import { cn } from "@/lib/utils";
 import { CatalogoCard, ConfirmarEliminar } from "./shared";
 import { mensajeError } from "./utils";
-
-// Columnas: primero la evaluación médica, luego pruebas, imágenes y terapias.
-const ORDEN_TIPO: Record<TipoServicio, number> = { evaluacion_medica: 0, prueba_complementaria: 1, imagen: 2, terapia: 3 };
-const ordenTipo = (s: Servicio) => (s.tipo ? ORDEN_TIPO[s.tipo] : 9);
 
 export function EnfasisTab() {
   const { data: enfasis = [], isLoading } = useEnfasis();
@@ -27,10 +23,8 @@ export function EnfasisTab() {
   const [editando, setEditando] = useState<Enfasis | "nuevo" | null>(null);
   const [eliminando, setEliminando] = useState<Enfasis | null>(null);
 
-  const columnas = useMemo(
-    () => [...servicios].sort((a, b) => ordenTipo(a) - ordenTipo(b) || a.nombre.localeCompare(b.nombre)),
-    [servicios],
-  );
+  // Columnas: primero la evaluación médica, luego pruebas, imágenes y terapias.
+  const columnas = useMemo(() => ordenarServicios(servicios), [servicios]);
   const seOfrece = (s: Servicio) => s.lineas.some((l) => l.activo);
 
   const marcar = (e: Enfasis, s: Servicio) => {

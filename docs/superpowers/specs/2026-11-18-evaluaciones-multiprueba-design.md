@@ -126,7 +126,6 @@ RLS en las tablas nuevas: lectura pública y escritura solo del admin, igual que
 
 ```sql
 ALTER TABLE slots ALTER COLUMN servicio DROP NOT NULL;           -- cupo sin servicio
-ALTER TABLE appointments ALTER COLUMN servicio DROP NOT NULL;     -- solo citas viejas
 ALTER TABLE appointments
   ADD COLUMN datos_evaluacion jsonb NOT NULL DEFAULT '{}',
   ADD COLUMN enfasis text[],           -- nombres al momento de agendar
@@ -144,6 +143,11 @@ CREATE TABLE citas_pruebas (
 ```
 
 - `citas_precios` sigue existiendo con la **suma** de `citas_pruebas`, así la facturación, las liquidaciones y los pagos de la migración 018 no cambian. Su `comision_pct` pasa a ser el porcentaje efectivo (informativo).
+- `citas_pruebas` solo la lee el admin: tiene el precio base y la comisión, que son confidenciales.
+- `appointments.servicio` sigue siendo obligatorio y guarda el **resumen de las pruebas** ("Evaluación médica ocupacional, Audiometría"). Así las pantallas de citas, pagos, resultados y facturas lo siguen mostrando sin cambios. Es una foto al momento de agendar.
+- Se elimina la política `solicitante_books`: el navegador ya no inserta citas directamente.
+- `p_datos` puede llegar en NULL mientras los flujos no pidan los datos del tipo (hasta las etapas 3 y 4). Las migraciones 021 y 022 lo vuelven obligatorio.
+- En el calendario de la IPS se quita el servicio y se agrega "Cupos por hora": crea un cupo por paciente a la misma hora.
 - Las citas existentes reciben una fila en `citas_pruebas` con su servicio actual.
 - Los horarios libres y futuros que ya existen pasan a ser cupos sin servicio (`servicio = NULL`). Los ocupados y los pasados conservan su servicio.
 - `validar_precio_slot` pasa a exigir que la IPS tenga **al menos una** prueba con precio.

@@ -237,7 +237,7 @@ function ProximaCita({ cita, onDetalle }: { cita: AppointmentWithNames; onDetall
         <dl className="mt-3 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
           <div className="flex items-center gap-2"><CalendarDays className="size-4 text-muted-foreground" aria-hidden /><dt className="sr-only">Fecha</dt><dd>{capitalizar(formatFecha(cita.fecha))}</dd></div>
           <div className="flex items-center gap-2"><Clock className="size-4 text-muted-foreground" aria-hidden /><dt className="sr-only">Hora</dt><dd>{formatHora(cita.hora)}</dd></div>
-          <div className="flex items-center gap-2"><Stethoscope className="size-4 text-muted-foreground" aria-hidden /><dt className="sr-only">Servicio</dt><dd>{cita.servicio}</dd></div>
+          <div className="flex items-center gap-2"><Stethoscope className="size-4 text-muted-foreground" aria-hidden /><dt className="sr-only">Pruebas</dt><dd>{cita.servicio}</dd></div>
           <div className="flex items-center gap-2"><MapPin className="size-4 text-muted-foreground" aria-hidden /><dt className="sr-only">Ciudad</dt><dd>{cita.ciudad}</dd></div>
           <div className="flex items-start gap-2 sm:col-span-2"><Building2 className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden /><dt className="sr-only">IPS</dt><dd className="font-medium">{cita.ips?.nombre ?? "—"}</dd></div>
         </dl>

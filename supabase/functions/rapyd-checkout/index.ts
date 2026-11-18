@@ -2,8 +2,9 @@
 // 30 minutos) y la página de pago de Rapyd. También sirve para reintentar el
 // pago de una reserva vigente.
 //
-// POST { slot_id, empleado_cedula, tipo_examen }  → reserva nueva
-// POST { appointment_id }                         → reintento
+// POST { slot_id, empleado_cedula, tipo_evaluacion, enfasis_ids, datos_evaluacion? } → reserva nueva
+// POST { appointment_id }                                                            → reintento
+// La cita, sus pruebas y su precio los crea crear_cita_interna (migración 020).
 // Responde { pago_id, redirect_url }.
 //
 // Secretos: los de _shared/rapyd.ts, APP_URL (la usa rapyd-retorno) y,
@@ -57,45 +58,43 @@ serve(async (req) => {
     }
     pago = data
   } else {
-    const { slot_id, empleado_cedula, tipo_examen } = body
-    if (!slot_id || !/^\d{5,12}$/.test(String(empleado_cedula ?? '')) || !tipo_examen) {
+    const { slot_id, empleado_cedula, tipo_evaluacion, enfasis_ids, datos_evaluacion } = body
+    if (!slot_id || !/^\d{5,12}$/.test(String(empleado_cedula ?? '')) || !tipo_evaluacion || !Array.isArray(enfasis_ids)) {
       return responder(400, { error: 'Faltan datos de la cita.' })
     }
-    const { data: tipo } = await supabase.from('tipos_evaluacion').select('roles_permitidos').eq('nombre', tipo_examen).maybeSingle()
-    if (!tipo?.roles_permitidos?.includes('particular')) return responder(400, { error: 'Tipo de evaluación no válido.' })
 
-    const { data: slot } = await supabase.from('slots').select('*').eq('id', slot_id).maybeSingle()
-    if (!slot || slot.taken) return responder(409, { error: 'Ese horario ya no está disponible.', codigo: 'HORARIO_TOMADO' })
-
-    // Los datos de la cita salen del horario, no de lo que envía el navegador.
-    const { data: cita, error } = await supabase
-      .from('appointments')
-      .insert({
-        slot_id: slot.id, ips_id: slot.ips_id, solicitante_id: user.id,
-        empleado_nombre: perfil.nombre, empleado_cedula: String(empleado_cedula), tipo_examen,
-        fecha: slot.fecha, hora: slot.hora, ciudad: slot.ciudad, servicio: slot.servicio,
-        estado: 'pendiente_pago',
-      })
-      .select('id')
-      .single()
+    // Pruebas, precio y datos de la cita los calcula y valida la base de datos.
+    const { data: citaId, error } = await supabase.rpc('crear_cita_interna', {
+      p_solicitante: user.id,
+      p_slot_id: slot_id,
+      p_empleado_nombre: perfil.nombre,
+      p_empleado_cedula: String(empleado_cedula),
+      p_tipo_evaluacion: tipo_evaluacion,
+      p_datos: datos_evaluacion ?? null,
+      p_enfasis_ids: enfasis_ids,
+      p_cargo: datos_evaluacion?.cargo ?? null,
+      p_estado: 'pendiente_pago',
+      p_permitir_parcial: true,
+    })
     if (error) {
-      if (error.code === '23505') return responder(409, { error: 'Ese horario ya no está disponible.', codigo: 'HORARIO_TOMADO' })
-      if (error.hint === 'SERVICIO_SIN_PRECIO') return responder(409, { error: 'Ese servicio ya no tiene precio en esta IPS.', codigo: 'SERVICIO_SIN_PRECIO' })
-      console.error('[rapyd-checkout] insert cita', error)
+      if (error.code === '23505' || error.hint === 'HORARIO_TOMADO') return responder(409, { error: 'Ese horario ya no está disponible.', codigo: 'HORARIO_TOMADO' })
+      if (error.hint === 'SIN_PRUEBAS' || error.hint === 'PRUEBAS_INCOMPLETAS') return responder(409, { error: error.message, codigo: 'SIN_PRUEBAS' })
+      if (error.hint === 'DATOS_INVALIDOS') return responder(400, { error: error.message, codigo: 'DATOS_INVALIDOS' })
+      console.error('[rapyd-checkout] crear cita', error)
       return responder(500, { error: 'No pudimos crear la reserva.' })
     }
-    citaNueva = cita.id
+    citaNueva = citaId as string
 
-    const { data: precio } = await supabase.from('citas_precios').select('precio_total').eq('appointment_id', cita.id).single()
+    const { data: precio } = await supabase.from('citas_precios').select('precio_total').eq('appointment_id', citaNueva).single()
     const expira = new Date(Date.now() + MINUTOS_RESERVA * 60_000).toISOString()
     const { data: nuevo, error: errPago } = await supabase
       .from('pagos')
-      .insert({ appointment_id: cita.id, solicitante_id: user.id, monto: precio!.precio_total, expira_at: expira })
+      .insert({ appointment_id: citaNueva, solicitante_id: user.id, monto: precio!.precio_total, expira_at: expira })
       .select('id, appointment_id, monto, expira_at')
       .single()
     if (errPago) {
       console.error('[rapyd-checkout] insert pago', errPago)
-      await supabase.from('appointments').update({ estado: 'expirada' }).eq('id', cita.id)
+      await supabase.from('appointments').update({ estado: 'expirada' }).eq('id', citaNueva)
       return responder(500, { error: 'No pudimos crear la reserva.' })
     }
     pago = nuevo

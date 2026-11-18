@@ -118,7 +118,7 @@ export function AppointmentDetailDialog({
               <InfoRow icon={CalendarDays} label="Fecha">{capitalizar(formatFecha(a.fecha))}</InfoRow>
               <InfoRow icon={Clock} label="Hora">{formatHora(a.hora)}</InfoRow>
               <InfoRow icon={ClipboardList} label="Tipo de examen">{capitalizar(a.tipo_examen)}</InfoRow>
-              <InfoRow icon={Stethoscope} label="Servicio">{a.servicio || "—"}</InfoRow>
+              <InfoRow icon={Stethoscope} label="Pruebas">{a.servicio || "—"}</InfoRow>
               {valor != null && <InfoRow icon={Wallet} label="Valor"><span className="tabular-nums">{formatPesos(valor)}</span></InfoRow>}
               <div className="sm:col-span-2"><InfoRow icon={Building2} label="IPS">{a.ips?.nombre ?? "—"}</InfoRow></div>
               <div className="sm:col-span-2">

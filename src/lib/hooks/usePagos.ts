@@ -26,7 +26,15 @@ async function invocar<T>(fn: string, body: Record<string, unknown>): Promise<T>
   return data as T
 }
 
-type NuevaReserva = { slot_id: string; empleado_cedula: string; tipo_examen: string }
+type NuevaReserva = {
+  slot_id: string
+  empleado_cedula: string
+  /** Código del tipo de evaluación (PRE_INGRESO…). */
+  tipo_evaluacion: string
+  enfasis_ids: string[]
+  /** Datos del tipo de evaluación; null mientras el flujo no los pida. */
+  datos_evaluacion?: Record<string, unknown> | null
+}
 
 /**
  * Crea la reserva (o reintenta el pago de una existente) y devuelve la URL de

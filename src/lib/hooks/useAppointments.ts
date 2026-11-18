@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import type { Appointment, Database } from '@/lib/database.types'
+import type { Appointment } from '@/lib/database.types'
 
 export type AppointmentIps = {
   nombre: string
@@ -63,26 +63,71 @@ export function useSolicitantes(enabled: boolean) {
   })
 }
 
-type BookData = Database['public']['Tables']['appointments']['Insert']
+// Las citas de empresa se crean con agendar_cita_empresa y agendar_lote_empresa
+// (migración 020): la base de datos calcula las pruebas, el precio y ocupa el cupo.
 
-export function useBookAppointment() {
+/** Error de negocio al agendar: código (HINT) y, en HORARIO_TOMADO de un lote, los cupos ya ocupados. */
+export function errorAgendar(err: unknown): { codigo?: string; mensaje: string; cuposTomados: string[] } {
+  const e = err as { hint?: string; message?: string; details?: string } | null
+  return {
+    codigo: e?.hint,
+    mensaje: e?.message ?? '',
+    cuposTomados: e?.hint === 'HORARIO_TOMADO' && e.details ? e.details.split(',') : [],
+  }
+}
+
+export interface CitaEmpresa {
+  slot_id: string
+  empleado_nombre: string
+  empleado_cedula: string
+  enfasis_ids: string[]
+  cargo?: string | null
+  /** Datos del tipo de evaluación; null mientras el flujo no los pida. */
+  datos?: Record<string, unknown> | null
+}
+
+function invalidarCitas(qc: ReturnType<typeof useQueryClient>, ipsId: string | null) {
+  qc.invalidateQueries({ queryKey: ['appointments'] })
+  qc.invalidateQueries({ queryKey: ['valores-citas'] })
+  qc.invalidateQueries({ queryKey: ['pagos-citas'] })
+  qc.invalidateQueries({ queryKey: ['slots', 'available', ipsId] })
+  qc.invalidateQueries({ queryKey: ['slots', ipsId] })
+}
+
+export function useAgendarCitaEmpresa() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (appt: BookData) => {
+    mutationFn: async ({ cita, tipo_evaluacion }: { cita: CitaEmpresa; tipo_evaluacion: string; ips_id: string }) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase.from('appointments') as any).insert(appt)
+      const { data, error } = await (supabase.rpc as any)('agendar_cita_empresa', {
+        p_slot_id: cita.slot_id,
+        p_empleado_nombre: cita.empleado_nombre,
+        p_empleado_cedula: cita.empleado_cedula,
+        p_tipo_evaluacion: tipo_evaluacion,
+        p_datos: cita.datos ?? null,
+        p_enfasis_ids: cita.enfasis_ids,
+        p_cargo: cita.cargo ?? null,
+      })
       if (error) throw error
+      return data as string
+    },
+    onSuccess: (_data, { ips_id }) => invalidarCitas(qc, ips_id),
+  })
+}
+
+export function useAgendarLoteEmpresa() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ citas, tipo_evaluacion }: { citas: CitaEmpresa[]; tipo_evaluacion: string; ips_id: string }) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error: slotError } = await (supabase.from('slots') as any).update({ taken: true }).eq('id', appt.slot_id)
-      if (slotError) throw slotError
+      const { data, error } = await (supabase.rpc as any)('agendar_lote_empresa', {
+        p_tipo_evaluacion: tipo_evaluacion,
+        p_citas: citas,
+      })
+      if (error) throw error
+      return data as number
     },
-    onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: ['appointments'] })
-      qc.invalidateQueries({ queryKey: ['valores-citas'] })
-      qc.invalidateQueries({ queryKey: ['pagos-citas'] })
-      qc.invalidateQueries({ queryKey: ['slots', 'available', variables.ips_id] })
-      qc.invalidateQueries({ queryKey: ['slots', variables.ips_id] })
-    },
+    onSuccess: (_data, { ips_id }) => invalidarCitas(qc, ips_id),
   })
 }
 
@@ -104,31 +149,6 @@ export function useCancelAppointment() {
       qc.invalidateQueries({ queryKey: ['valores-citas'] })
       qc.invalidateQueries({ queryKey: ['pagos-citas'] })
       qc.invalidateQueries({ queryKey: ['slots'] })
-    },
-  })
-}
-
-export function useBookAppointmentsBatch() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (citas: BookData[]) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase.from('appointments') as any).insert(citas)
-      if (error) throw error
-      const slotIds = citas.map((c) => c.slot_id)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error: slotError } = await (supabase.from('slots') as any)
-        .update({ taken: true })
-        .in('id', slotIds)
-      if (slotError) throw slotError
-    },
-    onSuccess: (_data, citas) => {
-      qc.invalidateQueries({ queryKey: ['appointments'] })
-      qc.invalidateQueries({ queryKey: ['valores-citas'] })
-      qc.invalidateQueries({ queryKey: ['pagos-citas'] })
-      const ipsId = citas[0]?.ips_id
-      if (ipsId) qc.invalidateQueries({ queryKey: ['slots', 'available', ipsId] })
-      if (ipsId) qc.invalidateQueries({ queryKey: ['slots', ipsId] })
     },
   })
 }

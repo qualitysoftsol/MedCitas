@@ -4,7 +4,7 @@ import { DEPARTAMENTOS, haversineKm } from "@/lib/colombia";
 import { supabase } from "@/lib/supabase";
 import { useLineas, useServicios, derivarLineas } from "@/lib/hooks/useCatalogos";
 import { precioKey, usePreciosServicios } from "@/lib/hooks/usePrecios";
-import type { Profile, IpsFoto, Slot } from "@/lib/database.types";
+import type { Profile, IpsFoto, Servicio, Slot } from "@/lib/database.types";
 import { hoyISO } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -34,19 +34,28 @@ export const chipClass = (active: boolean) =>
 
 export interface Disponibilidad { count: number; primero: Pick<Slot, "fecha" | "hora"> | null }
 
+/** Qué pruebas de la evaluación hace una IPS y cuánto suman (precio + comisión). */
+export interface Cobertura {
+  hechas: { id: string; nombre: string; total: number }[];
+  faltan: string[];
+  total: number;
+}
+
 /**
  * Búsqueda de IPS compartida por los flujos de particular y empresa:
- * IPS de la ciudad, fotos de portada, disponibilidad (horarios libres desde hoy),
- * filtro por línea de servicio (solo las activas) y orden por distancia.
+ * IPS de la ciudad, fotos de portada, qué pruebas de la evaluación hace cada una
+ * (`pruebas`), disponibilidad (cupos libres desde hoy en las IPS que hacen al
+ * menos una), filtro por línea de servicio (solo las activas) y orden por distancia.
  */
 export function useIpsSearch({
-  depto, ciudad, userLoc, filtro, selectedIps,
+  depto, ciudad, userLoc, filtro, selectedIps, pruebas,
 }: {
   depto: string;
   ciudad: string;
   userLoc: LatLng | null;
   filtro: string[];
   selectedIps: string | null;
+  pruebas: Pick<Servicio, "id" | "nombre">[];
 }) {
   const { data: todasLasLineas = [] } = useLineas();
   const lineas = useMemo(() => todasLasLineas.filter((l) => l.activo), [todasLasLineas]);
@@ -82,36 +91,46 @@ export function useIpsSearch({
       if (ipsIds.length === 0) return [];
       const { data, error } = await supabase
         .from("slots")
-        .select("ips_id, fecha, hora, servicio")
+        .select("ips_id, fecha, hora")
         .in("ips_id", ipsIds)
         .eq("taken", false)
         .gte("fecha", hoy)
         .order("fecha")
         .order("hora");
       if (error) throw error;
-      return data as Pick<Slot, "ips_id" | "fecha" | "hora" | "servicio">[];
+      return data as Pick<Slot, "ips_id" | "fecha" | "hora">[];
     },
     enabled: ipsIds.length > 0,
   });
 
-  // Valor final de cada servicio (precio + comisión). Un horario cuyo servicio no
-  // tiene precio no se puede agendar, así que no cuenta como disponible.
+  // Valor final de cada servicio (precio + comisión). Una IPS hace una prueba si
+  // la tiene en su perfil y con precio: la misma regla de crear_cita_interna.
   const { data: precios, isLoading: preciosLoading } = usePreciosServicios(ipsIds);
-  const precioDe = useCallback(
-    (s: Pick<Slot, "ips_id" | "servicio">) => precios?.get(precioKey(s.ips_id, s.servicio)) ?? null,
-    [precios],
-  );
+  const coberturas = useMemo(() => {
+    const map = new Map<string, Cobertura>();
+    ipsEnCiudad.forEach((ips) => {
+      const c: Cobertura = { hechas: [], faltan: [], total: 0 };
+      pruebas.forEach((p) => {
+        const total = (ips.servicios ?? []).includes(p.nombre) ? precios?.get(precioKey(ips.id, p.nombre)) : undefined;
+        if (total != null) { c.hechas.push({ id: p.id, nombre: p.nombre, total }); c.total += total; }
+        else c.faltan.push(p.nombre);
+      });
+      map.set(ips.id, c);
+    });
+    return map;
+  }, [ipsEnCiudad, pruebas, precios]);
+  const coberturaDe = useCallback((ipsId: string | null) => (ipsId ? coberturas.get(ipsId) ?? null : null), [coberturas]);
 
   const disponibilidad = useMemo(() => {
     const map = new Map<string, Disponibilidad>();
-    libres.filter((s) => esFuturo(s, hoy) && precioDe(s) != null).forEach((s) => {
+    libres.filter((s) => esFuturo(s, hoy) && (coberturas.get(s.ips_id)?.hechas.length ?? 0) > 0).forEach((s) => {
       const cur = map.get(s.ips_id) ?? { count: 0, primero: null };
       cur.count += 1;
       if (!cur.primero) cur.primero = s;
       map.set(s.ips_id, cur);
     });
     return map;
-  }, [libres, hoy, precioDe]);
+  }, [libres, hoy, coberturas]);
 
   const ciudadObj = DEPARTAMENTOS.find((d) => d.nombre === depto)?.ciudades.find((c) => c.nombre === ciudad);
   const centro = useMemo(
@@ -143,7 +162,7 @@ export function useIpsSearch({
   return {
     lineas, catalogoServicios, ipsEnCiudad, ipsLoading, ipsError, refetchIps, portadaUrl,
     disponibilidad, libresLoading: libresLoading || preciosLoading, ipsConDistancia, markers, centro,
-    precioDe, preciosLoading,
+    coberturaDe, preciosLoading,
   };
 }
 

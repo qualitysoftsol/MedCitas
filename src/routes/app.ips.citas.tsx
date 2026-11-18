@@ -80,7 +80,7 @@ function IpsCitas() {
                     <TableHead>Empleado / paciente</TableHead>
                     <TableHead>Cédula</TableHead>
                     <TableHead>Examen</TableHead>
-                    <TableHead>Servicio</TableHead>
+                    <TableHead>Pruebas</TableHead>
                     <TableHead className="text-right">Valor</TableHead>
                     <TableHead>Estado</TableHead>
                     <TableHead className="pr-5 text-right">Acciones</TableHead>
