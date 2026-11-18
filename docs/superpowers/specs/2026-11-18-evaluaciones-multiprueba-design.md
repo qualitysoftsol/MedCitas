@@ -148,6 +148,7 @@ CREATE TABLE citas_pruebas (
 - Los horarios libres y futuros que ya existen pasan a ser cupos sin servicio (`servicio = NULL`). Los ocupados y los pasados conservan su servicio.
 - `validar_precio_slot` pasa a exigir que la IPS tenga **al menos una** prueba con precio.
 - El trigger `appointment_precio` se elimina. El precio lo calcula la función de agendar.
+- Se elimina la vista de compatibilidad `tipos_examen` que dejó la 019 (para entonces `rapyd-checkout` ya lee `tipos_evaluacion`).
 
 **Funciones de agendar** (SECURITY DEFINER, atómicas)
 

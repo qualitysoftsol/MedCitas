@@ -61,8 +61,8 @@ serve(async (req) => {
     if (!slot_id || !/^\d{5,12}$/.test(String(empleado_cedula ?? '')) || !tipo_examen) {
       return responder(400, { error: 'Faltan datos de la cita.' })
     }
-    const { data: tipo } = await supabase.from('tipos_examen').select('roles_permitidos').eq('nombre', tipo_examen).maybeSingle()
-    if (!tipo?.roles_permitidos?.includes('particular')) return responder(400, { error: 'Tipo de examen no válido.' })
+    const { data: tipo } = await supabase.from('tipos_evaluacion').select('roles_permitidos').eq('nombre', tipo_examen).maybeSingle()
+    if (!tipo?.roles_permitidos?.includes('particular')) return responder(400, { error: 'Tipo de evaluación no válido.' })
 
     const { data: slot } = await supabase.from('slots').select('*').eq('id', slot_id).maybeSingle()
     if (!slot || slot.taken) return responder(409, { error: 'Ese horario ya no está disponible.', codigo: 'HORARIO_TOMADO' })

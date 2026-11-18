@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import type { Appointment } from '@/lib/database.types'
+import type { Appointment, Database } from '@/lib/database.types'
 
 export type AppointmentIps = {
   nombre: string
@@ -63,7 +63,7 @@ export function useSolicitantes(enabled: boolean) {
   })
 }
 
-type BookData = Omit<Appointment, 'id' | 'created_at' | 'estado'>
+type BookData = Database['public']['Tables']['appointments']['Insert']
 
 export function useBookAppointment() {
   const qc = useQueryClient()

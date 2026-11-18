@@ -4,7 +4,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { DEPARTAMENTOS } from "@/lib/colombia";
-import type { Slot, TipoExamen } from "@/lib/database.types";
+import type { Slot, TipoEvaluacion } from "@/lib/database.types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -15,7 +15,7 @@ import { AddressInput } from "@/components/AddressInput";
 import { IpsDetailPanel } from "@/components/IpsDetailPanel";
 import { EmptyState } from "@/components/app/EmptyState";
 import { FormField } from "@/components/app/FormField";
-import { derivarClasificaciones } from "@/lib/hooks/useCatalogos";
+import { derivarLineas } from "@/lib/hooks/useCatalogos";
 import { capitalizar, fechaPartes, formatFecha, formatFechaCorta, formatHora, formatPesos } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { StepHeading, type WizardStep } from "./WizardParts";
@@ -26,7 +26,7 @@ import { chipClass, formatDistancia, type IpsSearch, type LatLng } from "./useIp
 export function TipoExamenPicker({
   tipos, loading, value, onChange, error,
 }: {
-  tipos: TipoExamen[];
+  tipos: TipoEvaluacion[];
   loading: boolean;
   value: string;
   onChange: (v: string) => void;
@@ -34,13 +34,13 @@ export function TipoExamenPicker({
 }) {
   return (
     <fieldset>
-      <legend className="mb-2 text-[13px] font-semibold">Tipo de examen <span className="text-danger-foreground" aria-hidden>*</span></legend>
+      <legend className="mb-2 text-[13px] font-semibold">Motivo de la evaluación <span className="text-danger-foreground" aria-hidden>*</span></legend>
       {loading ? (
         <div className="grid gap-3 sm:grid-cols-2"><Skeleton className="h-20" /><Skeleton className="h-20" /></div>
       ) : tipos.length === 0 ? (
-        <p className="rounded-lg bg-warning-soft px-3 py-2 text-sm text-warning-foreground">No hay tipos de examen habilitados para tu cuenta. Contacta a soporte.</p>
+        <p className="rounded-lg bg-warning-soft px-3 py-2 text-sm text-warning-foreground">No hay tipos de evaluación habilitados para tu cuenta. Contacta a soporte.</p>
       ) : (
-        <div className={cn("grid gap-3", tipos.length > 2 ? "sm:grid-cols-3" : "sm:grid-cols-2")} role="radiogroup" aria-label="Tipo de examen">
+        <div className={cn("grid gap-3", tipos.length > 2 ? "sm:grid-cols-3" : "sm:grid-cols-2")} role="radiogroup" aria-label="Motivo de la evaluación">
           {tipos.map((t) => {
             const active = value === t.nombre;
             return (
@@ -56,8 +56,8 @@ export function TipoExamenPicker({
                   {active && <span className="size-2 rounded-full bg-white" />}
                 </span>
                 <span>
-                  <span className="block font-semibold">Examen de {t.nombre.toLowerCase()}</span>
-                  <span className="block text-xs text-muted-foreground">{capitalizar(t.nombre)}</span>
+                  <span className="block font-semibold">{t.nombre}</span>
+                  {t.descripcion && <span className="block text-xs text-muted-foreground">{t.descripcion}</span>}
                 </span>
               </label>
             );
@@ -201,7 +201,7 @@ export function IpsStep({
   cuposNecesarios?: number;
 }) {
   const [detailIps, setDetailIps] = useState<string | null>(null);
-  const { clasificaciones, catalogoServicios, ipsEnCiudad, ipsLoading, ipsError, refetchIps, portadaUrl, disponibilidad, libresLoading, ipsConDistancia, markers, centro } = search;
+  const { lineas, catalogoServicios, ipsEnCiudad, ipsLoading, ipsError, refetchIps, portadaUrl, disponibilidad, libresLoading, ipsConDistancia, markers, centro } = search;
   const ipsSel = ipsEnCiudad.find((i) => i.id === selectedIps) ?? null;
   const toggle = (nombre: string) => setFiltro(filtro.includes(nombre) ? filtro.filter((x) => x !== nombre) : [...filtro, nombre]);
 
@@ -220,10 +220,10 @@ export function IpsStep({
           description={<>IPS en <strong className="text-foreground">{ciudad}</strong>, ordenadas por cercanía.</>}
         />
         <CardContent className="flex min-h-0 flex-1 flex-col gap-4">
-          {clasificaciones.length > 0 && (
-            <div role="group" aria-label="Filtrar por clasificación" className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+          {lineas.length > 0 && (
+            <div role="group" aria-label="Filtrar por línea de servicio" className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
               <button aria-pressed={filtro.length === 0} onClick={() => setFiltro([])} className={chipClass(filtro.length === 0)}>Todas</button>
-              {clasificaciones.map((c) => (
+              {lineas.map((c) => (
                 <button key={c.id} aria-pressed={filtro.includes(c.nombre)} onClick={() => toggle(c.nombre)} className={chipClass(filtro.includes(c.nombre))}>
                   {filtro.includes(c.nombre) && <Check className="size-3.5" aria-hidden />}
                   {c.nombre}
@@ -257,7 +257,7 @@ export function IpsStep({
                 {ipsConDistancia.map(({ ips, distancia }) => {
                   const active = selectedIps === ips.id;
                   const disp = disponibilidad.get(ips.id);
-                  const clasif = derivarClasificaciones(ips.servicios ?? [], catalogoServicios);
+                  const clasif = derivarLineas(ips.servicios ?? [], catalogoServicios);
                   const insuficiente = !!cuposNecesarios && !!disp && disp.count < cuposNecesarios;
                   return (
                     <li key={ips.id} id={`ips-${ips.id}`}>

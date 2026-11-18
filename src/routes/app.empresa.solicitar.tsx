@@ -15,7 +15,7 @@ import { FormField, IconInput } from "@/components/app/FormField";
 import { useAuth } from "@/lib/auth-context";
 import { useAvailableSlots } from "@/lib/hooks/useSlots";
 import { useBookAppointment, useBookAppointmentsBatch } from "@/lib/hooks/useAppointments";
-import { useTiposExamen } from "@/lib/hooks/useCatalogos";
+import { useTiposEvaluacion } from "@/lib/hooks/useCatalogos";
 import { esErrorSinPrecio } from "@/lib/hooks/usePrecios";
 import { capitalizar, fechaPartes, formatFecha, formatFechaCorta, formatHora, formatPesos, hoyISO } from "@/lib/format";
 import { ConfirmRow, Resumen, StepHeading, Stepper, SuccessCard, TotalRow, WizardNav, type WizardStep } from "@/components/solicitar/WizardParts";
@@ -121,7 +121,7 @@ function EmpresaSolicitar() {
   const qc = useQueryClient();
   const bookAppointment = useBookAppointment();
   const bookAppointmentsBatch = useBookAppointmentsBatch();
-  const { data: tiposExamen = [], isLoading: tiposLoading } = useTiposExamen();
+  const { data: tiposExamen = [], isLoading: tiposLoading } = useTiposEvaluacion();
   // Solo los tipos habilitados para empresas en el catálogo (p. ej. "Retiro" es exclusivo de empresas).
   const tiposDisponibles = useMemo(() => tiposExamen.filter((t) => t.roles_permitidos.includes("empresa")), [tiposExamen]);
 
@@ -157,7 +157,7 @@ function EmpresaSolicitar() {
 
   const nombreError = !empleadoNombre.trim() ? "Ingresa el nombre del empleado." : null;
   const cedulaError = !empleadoCedula.trim() ? "Ingresa la cédula del empleado." : null;
-  const tipoError = !tipoExamen ? "Selecciona el tipo de examen." : null;
+  const tipoError = !tipoExamen ? "Selecciona el motivo de la evaluación." : null;
   const archivoFalta = archivoEmpleados.length === 0 ? "Carga un archivo con al menos un empleado." : null;
   const paso1Ok = modo === "individual" ? !nombreError && !cedulaError && !tipoError : !archivoFalta && !tipoError;
   const canNext: Record<number, boolean> = {

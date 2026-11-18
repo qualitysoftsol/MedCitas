@@ -13,7 +13,7 @@ import { FormField, IconInput } from "@/components/app/FormField";
 import { useAuth } from "@/lib/auth-context";
 import { useAvailableSlots } from "@/lib/hooks/useSlots";
 import { PagoError, useIniciarPago } from "@/lib/hooks/usePagos";
-import { useTiposExamen } from "@/lib/hooks/useCatalogos";
+import { useTiposEvaluacion } from "@/lib/hooks/useCatalogos";
 import { capitalizar, fechaPartes, formatFecha, formatFechaCorta, formatHora, formatPesos, hoyISO } from "@/lib/format";
 import { ConfirmRow, Resumen, StepHeading, Stepper, TotalRow, WizardNav, type WizardStep } from "@/components/solicitar/WizardParts";
 import { HorarioPicker, IpsStep, TipoExamenPicker, UbicacionStep } from "@/components/solicitar/Steps";
@@ -54,7 +54,7 @@ function ParticularSolicitar() {
 
   const qc = useQueryClient();
   const iniciarPago = useIniciarPago();
-  const { data: tiposExamen = [], isLoading: tiposLoading } = useTiposExamen();
+  const { data: tiposExamen = [], isLoading: tiposLoading } = useTiposEvaluacion();
   const tiposDisponibles = useMemo(() => tiposExamen.filter((t) => t.roles_permitidos.includes("particular")), [tiposExamen]);
 
   useEffect(() => {
@@ -76,7 +76,7 @@ function ParticularSolicitar() {
   const valorSel = slotSel ? precioDe(slotSel) : null;
 
   const cedulaError = !cedula.trim() ? "Ingresa tu número de documento." : !/^\d{5,12}$/.test(cedula) ? "Usa solo números, entre 5 y 12 dígitos." : null;
-  const tipoError = !tipoExamen ? "Selecciona el tipo de examen." : null;
+  const tipoError = !tipoExamen ? "Selecciona el motivo de la evaluación." : null;
   const canNext: Record<number, boolean> = { 1: !cedulaError && !tipoError, 2: !!ciudad, 3: !!selectedIps, 4: !!slotSel, 5: true };
 
   const goTo = (s: number) => { setStep(s); setMaxStep((m) => Math.max(m, s)); };

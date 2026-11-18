@@ -61,6 +61,8 @@ export type Database = {
           empleado_nombre: string
           empleado_cedula: string
           tipo_examen: string
+          /** Código del tipo de evaluación (migración 019). Si no se envía, lo completa un trigger desde tipo_examen. */
+          tipo_evaluacion: string | null
           fecha: string
           hora: string
           ciudad: string
@@ -68,7 +70,7 @@ export type Database = {
           estado: 'pendiente_pago' | 'agendada' | 'atendida' | 'cancelada' | 'expirada'
           created_at: string
         }
-        Insert: Omit<Database['public']['Tables']['appointments']['Row'], 'id' | 'created_at' | 'estado'>
+        Insert: Omit<Database['public']['Tables']['appointments']['Row'], 'id' | 'created_at' | 'estado' | 'tipo_evaluacion'> & { tipo_evaluacion?: string | null }
         Update: Partial<Database['public']['Tables']['appointments']['Row']>
       }
       resultados: {
@@ -102,20 +104,56 @@ export type Database = {
         Insert: Omit<Database['public']['Tables']['notifications']['Row'], 'id' | 'created_at' | 'read'>
         Update: Partial<Database['public']['Tables']['notifications']['Row']>
       }
-      clasificaciones: {
-        Row: { id: string; nombre: string; created_at: string }
-        Insert: { nombre: string }
-        Update: Partial<{ nombre: string }>
+      // Catálogos de evaluación (migración 019).
+      lineas_servicio: {
+        Row: { id: string; nombre: string; descripcion: string | null; activo: boolean; created_at: string }
+        Insert: { nombre: string; descripcion?: string | null; activo?: boolean }
+        Update: Partial<{ nombre: string; descripcion: string | null; activo: boolean }>
       }
       servicios: {
-        Row: { id: string; nombre: string; clasificacion_id: string | null; created_at: string }
-        Insert: { nombre: string; clasificacion_id?: string | null }
-        Update: Partial<{ nombre: string; clasificacion_id: string | null }>
+        Row: {
+          id: string
+          nombre: string
+          tipo: TipoServicio | null
+          preparacion: string | null
+          indicaciones: string | null
+          duracion_min: number | null
+          created_at: string
+        }
+        // Se escriben con la función guardar_servicio, que también guarda las líneas.
+        Insert: never
+        Update: never
       }
-      tipos_examen: {
-        Row: { id: string; nombre: string; roles_permitidos: string[]; created_at: string }
-        Insert: { nombre: string; roles_permitidos?: string[] }
-        Update: Partial<{ nombre: string; roles_permitidos: string[] }>
+      servicio_lineas: {
+        Row: { servicio_id: string; linea_id: string }
+        Insert: { servicio_id: string; linea_id: string }
+        Update: never
+      }
+      tipos_evaluacion: {
+        Row: {
+          id: string
+          codigo: string
+          nombre: string
+          descripcion: string | null
+          regla: string | null
+          indicaciones: string | null
+          roles_permitidos: string[]
+          orden: number | null
+          created_at: string
+        }
+        // Fijos: solo se actualizan.
+        Insert: never
+        Update: Partial<{ nombre: string; descripcion: string | null; regla: string | null; indicaciones: string | null; roles_permitidos: string[] }>
+      }
+      enfasis: {
+        Row: { id: string; nombre: string; exclusivo: boolean; orden: number | null; created_at: string }
+        Insert: { nombre: string; exclusivo?: boolean; orden?: number | null }
+        Update: Partial<{ nombre: string; exclusivo: boolean; orden: number | null }>
+      }
+      enfasis_servicios: {
+        Row: { enfasis_id: string; servicio_id: string }
+        Insert: { enfasis_id: string; servicio_id: string }
+        Update: never
       }
       precios_ips: {
         Row: { ips_id: string; servicio_id: string; precio: number; updated_at: string }
@@ -230,13 +268,17 @@ export type Pago = Database['public']['Tables']['pagos']['Row']
 export type Reembolso = Database['public']['Tables']['reembolsos']['Row']
 export type FacturaEmpresa = Database['public']['Tables']['facturas_empresa']['Row']
 export type LiquidacionIps = Database['public']['Tables']['liquidaciones_ips']['Row']
-export type Clasificacion = Database['public']['Tables']['clasificaciones']['Row']
-export type TipoExamen = Database['public']['Tables']['tipos_examen']['Row']
+export type LineaServicio = Database['public']['Tables']['lineas_servicio']['Row']
+export type TipoEvaluacion = Database['public']['Tables']['tipos_evaluacion']['Row']
 
-export type Servicio = {
-  id: string
-  nombre: string
-  clasificacion_id: string | null
-  clasificacion: { id: string; nombre: string } | null
-  created_at: string
+export type TipoServicio = 'evaluacion_medica' | 'prueba_complementaria' | 'imagen' | 'terapia'
+
+/** Servicio con sus líneas (useServicios). */
+export type Servicio = Database['public']['Tables']['servicios']['Row'] & {
+  lineas: Pick<LineaServicio, 'id' | 'nombre' | 'activo'>[]
+}
+
+/** Énfasis con los servicios (pruebas) que suma (useEnfasis). */
+export type Enfasis = Database['public']['Tables']['enfasis']['Row'] & {
+  servicio_ids: string[]
 }

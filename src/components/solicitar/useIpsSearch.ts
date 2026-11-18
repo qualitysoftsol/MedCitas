@@ -2,7 +2,7 @@ import { useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { DEPARTAMENTOS, haversineKm } from "@/lib/colombia";
 import { supabase } from "@/lib/supabase";
-import { useClasificaciones, useServicios, derivarClasificaciones } from "@/lib/hooks/useCatalogos";
+import { useLineas, useServicios, derivarLineas } from "@/lib/hooks/useCatalogos";
 import { precioKey, usePreciosServicios } from "@/lib/hooks/usePrecios";
 import type { Profile, IpsFoto, Slot } from "@/lib/database.types";
 import { hoyISO } from "@/lib/format";
@@ -37,7 +37,7 @@ export interface Disponibilidad { count: number; primero: Pick<Slot, "fecha" | "
 /**
  * Búsqueda de IPS compartida por los flujos de particular y empresa:
  * IPS de la ciudad, fotos de portada, disponibilidad (horarios libres desde hoy),
- * filtro por clasificación y orden por distancia.
+ * filtro por línea de servicio (solo las activas) y orden por distancia.
  */
 export function useIpsSearch({
   depto, ciudad, userLoc, filtro, selectedIps,
@@ -48,7 +48,8 @@ export function useIpsSearch({
   filtro: string[];
   selectedIps: string | null;
 }) {
-  const { data: clasificaciones = [] } = useClasificaciones();
+  const { data: todasLasLineas = [] } = useLineas();
+  const lineas = useMemo(() => todasLasLineas.filter((l) => l.activo), [todasLasLineas]);
   const { data: catalogoServicios = [] } = useServicios();
 
   const { data: ipsEnCiudad = [], isLoading: ipsLoading, isError: ipsError, refetch: refetchIps } = useQuery({
@@ -122,7 +123,7 @@ export function useIpsSearch({
     return ipsEnCiudad
       .filter((ips) => {
         if (filtro.length === 0) return true;
-        return derivarClasificaciones(ips.servicios ?? [], catalogoServicios).some((c) => filtro.includes(c));
+        return derivarLineas(ips.servicios ?? [], catalogoServicios).some((c) => filtro.includes(c));
       })
       .map((ips) => ({
         ips,
@@ -140,7 +141,7 @@ export function useIpsSearch({
   );
 
   return {
-    clasificaciones, catalogoServicios, ipsEnCiudad, ipsLoading, ipsError, refetchIps, portadaUrl,
+    lineas, catalogoServicios, ipsEnCiudad, ipsLoading, ipsError, refetchIps, portadaUrl,
     disponibilidad, libresLoading: libresLoading || preciosLoading, ipsConDistancia, markers, centro,
     precioDe, preciosLoading,
   };

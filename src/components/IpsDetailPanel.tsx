@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight, Stethoscope } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { Profile } from "@/lib/database.types";
-import { useServicios, derivarClasificaciones } from "@/lib/hooks/useCatalogos";
+import { useServicios, derivarLineas } from "@/lib/hooks/useCatalogos";
 
 interface Props {
   ips: Profile;
@@ -18,7 +18,7 @@ export function IpsDetailPanel({ ips, distancia, onConfirm, confirmLabel = "Conf
   const { data: catalogoServicios = [] } = useServicios();
   const [current, setCurrent] = useState(0);
 
-  const clasificacionesDerived = derivarClasificaciones(ips.servicios ?? [], catalogoServicios);
+  const lineas = derivarLineas(ips.servicios ?? [], catalogoServicios);
 
   const prev = () => setCurrent((c) => Math.max(0, c - 1));
   const next = () => setCurrent((c) => Math.min(fotos.length - 1, c + 1));
@@ -78,9 +78,9 @@ export function IpsDetailPanel({ ips, distancia, onConfirm, confirmLabel = "Conf
         </div>
       )}
 
-      {clasificacionesDerived.length > 0 && (
+      {lineas.length > 0 && (
         <div className="flex flex-wrap gap-1">
-          {clasificacionesDerived.map((c) => (
+          {lineas.map((c) => (
             <Badge key={c} variant="outline" className="text-xs">{c}</Badge>
           ))}
         </div>

@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Building2, Stethoscope, ClipboardList, FileCheck2, User } from "lucide-react";
 import { IpsFotosSection } from "@/components/IpsFotosSection";
-import { useServicios, derivarClasificaciones } from "@/lib/hooks/useCatalogos";
+import { useServicios, derivarLineas } from "@/lib/hooks/useCatalogos";
 
 export const Route = createFileRoute("/app/admin/")({
   component: AdminDashboard,
@@ -82,7 +82,7 @@ function AdminDashboard() {
             {ips.length === 0 ? <p className="text-sm text-muted-foreground">Sin IPS.</p> : (
               <ul className="divide-y">
                 {ips.map((u) => {
-                  const clasifs = derivarClasificaciones(u.servicios ?? [], catalogoServicios);
+                  const lineas = derivarLineas(u.servicios ?? [], catalogoServicios);
                   return (
                     <li key={u.id} className="py-2">
                       <div className="font-medium">{u.nombre}</div>
@@ -92,9 +92,9 @@ function AdminDashboard() {
                       <div className="mt-1 flex flex-wrap gap-1">
                         {(u.servicios ?? []).map((s) => <Badge key={s} variant="secondary" className="text-xs">{s}</Badge>)}
                       </div>
-                      {clasifs.length > 0 && (
+                      {lineas.length > 0 && (
                         <div className="mt-1 flex flex-wrap gap-1">
-                          {clasifs.map((c) => <Badge key={c} variant="outline" className="text-xs">{c}</Badge>)}
+                          {lineas.map((c) => <Badge key={c} variant="outline" className="text-xs">{c}</Badge>)}
                         </div>
                       )}
                       <div className="mt-3">
