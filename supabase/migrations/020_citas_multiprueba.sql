@@ -32,11 +32,16 @@ BEGIN;
 
 ALTER TABLE slots ALTER COLUMN servicio DROP NOT NULL;
 
+-- Convertir los horarios no es crear uno nuevo: validar_precio_slot (versión
+-- de la 019, todavía activa aquí) se salta con esta marca, igual que al
+-- renombrar un servicio. Sin ella rechazaría cada fila y la migración fallaría.
+SELECT set_config('medcitas.renombrando_servicio', 'on', true);
 UPDATE slots
 SET servicio = NULL
 WHERE taken = false
   AND servicio IS NOT NULL
   AND fecha >= (now() AT TIME ZONE 'America/Bogota')::date;
+SELECT set_config('medcitas.renombrando_servicio', 'off', true);
 
 -- Un cupo nuevo exige que la IPS tenga al menos un servicio de su perfil con
 -- precio. Los horarios antiguos con servicio conservan la regla de la 016.

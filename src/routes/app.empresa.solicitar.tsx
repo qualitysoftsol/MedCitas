@@ -17,7 +17,7 @@ import { FormField, IconInput } from "@/components/app/FormField";
 import { useAuth } from "@/lib/auth-context";
 import { useAvailableSlots, useSlots } from "@/lib/hooks/useSlots";
 import { errorAgendar, useAgendarCitaEmpresa, useAgendarLoteEmpresa, useAppointments, type FilaLote } from "@/lib/hooks/useAppointments";
-import { pruebasDeEnfasis, useServicios, useTiposEvaluacion } from "@/lib/hooks/useCatalogos";
+import { pruebasDeEnfasis, useEnfasis, useServicios, useTiposEvaluacion } from "@/lib/hooks/useCatalogos";
 import { formatDocumento, nombreCompleto, useCargos, useEmpleados } from "@/lib/hooks/useEmpresa";
 import {
   erroresDatos, formatDuracion, indicacionesDe, limpiarDatos, type DatosEvaluacion,
@@ -132,6 +132,7 @@ function EmpresaSolicitar() {
   const { data: empleados = [], isLoading: empleadosLoading } = useEmpleados(profile?.id);
   const { data: cargos = [] } = useCargos(profile?.id);
   const { data: servicios = [] } = useServicios();
+  const { data: enfasisCatalogo = [] } = useEnfasis();
   const { data: tipos = [], isLoading: tiposLoading } = useTiposEvaluacion();
   const tiposEmpresa = useMemo(() => tipos.filter((t) => t.roles_permitidos.includes("empresa")), [tipos]);
   const tiposLote = tiposEmpresa.filter((t) => TIPOS_LOTE.includes(t.codigo));
@@ -162,7 +163,10 @@ function EmpresaSolicitar() {
   );
 
   // ── Lote: filas del archivo ──
-  const validadas = useMemo(() => (archivo ? validarFilas(archivo.filas, cargos, codigoLote, mapeo) : []), [archivo, cargos, codigoLote, mapeo]);
+  const validadas = useMemo(
+    () => (archivo ? validarFilas(archivo.filas, cargos, enfasisCatalogo, codigoLote, mapeo) : []),
+    [archivo, cargos, enfasisCatalogo, codigoLote, mapeo],
+  );
   const activas = validadas.filter((f) => !quitadas.has(f.fila));
   const listas = activas.filter((f) => f.errores.length === 0);
   const conError = activas.filter((f) => f.errores.length > 0);
@@ -170,7 +174,7 @@ function EmpresaSolicitar() {
 
   // ── Pruebas, IPS y valor ──
   const evaluacion = useEvaluacion(modo === "individual" ? enfasisInd : enfasisLote);
-  const search = useIpsSearch({ depto, ciudad, userLoc, filtro: [], selectedIps, pruebas: evaluacion.pruebas });
+  const search = useIpsSearch({ depto, ciudad, userLoc, pruebas: evaluacion.pruebas });
   const ipsSel = search.ipsEnCiudad.find((i) => i.id === selectedIps) ?? null;
   const cobertura = search.coberturaDe(selectedIps);
   const precioPrueba = useMemo(() => new Map(cobertura?.hechas.map((h) => [h.id, h.total]) ?? []), [cobertura]);
@@ -221,9 +225,12 @@ function EmpresaSolicitar() {
   const fechasLote = Array.from(new Set(conTurno.map((f) => asignacion.get(String(f.fila))!.fecha))).sort();
 
   // ── Validación por paso ──
+  // Un énfasis pudo volverse excluyente después de armar el cargo.
+  const combinaExcluyente = enfasisInd.length > 1 && enfasisCatalogo.some((e) => e.exclusivo && enfasisInd.includes(e.id));
   const enfasisError = enfasisInd.length === 0
     ? cargoEval ? "El cargo no tiene énfasis. Elige al menos uno." : "Elige al menos un énfasis."
-    : !evaluacion.loading && evaluacion.pruebas.length === 0 ? "Estos énfasis no tienen pruebas disponibles por ahora." : null;
+    : combinaExcluyente ? "Un énfasis excluyente no se combina con otros. Cámbialos solo para esta cita o corrige el cargo."
+      : !evaluacion.loading && evaluacion.pruebas.length === 0 ? "Estos énfasis no tienen pruebas disponibles por ahora." : null;
   const paso1Ind = !!empleado && !!tipo && Object.keys(errores).length === 0 && !enfasisError;
   const paso1Lote = listas.length > 0 && (conError.length === 0 || soloListos);
   const canNext: Record<number, boolean> = {
@@ -256,10 +263,10 @@ function EmpresaSolicitar() {
   // Lo que cambia las pruebas obliga a elegir de nuevo IPS y horario.
   const reiniciarDesdeIps = () => { setSelectedIps(null); setSelectedSlot(null); setManual({}); setMaxStep(1); };
   const cambiarModo = (m: Modo) => { if (m === modo) return; setModo(m); setTouched1(false); reiniciarDesdeIps(); };
-  const elegirEmpleado = (id: string) => { setEmpleadoId(id); setEnfasisPropios(null); setDatos({}); reiniciarDesdeIps(); };
-  const cambiarTipo = (c: string) => { if (c !== codigo) { setCodigo(c); setDatos({}); setEnfasisPropios(null); reiniciarDesdeIps(); } };
+  const elegirEmpleado = (id: string) => { setEmpleadoId(id); setEnfasisPropios(null); setDatos({}); setCargoNuevoId(""); reiniciarDesdeIps(); };
+  const cambiarTipo = (c: string) => { if (c !== codigo) { setCodigo(c); setDatos({}); setCargoNuevoId(""); setEnfasisPropios(null); reiniciarDesdeIps(); } };
   const cambiarDatos = (d: DatosEvaluacion) => {
-    if (d.motivo !== datos.motivo) { setEnfasisPropios(null); reiniciarDesdeIps(); }
+    if (d.motivo !== datos.motivo) { setEnfasisPropios(null); setCargoNuevoId(""); reiniciarDesdeIps(); }
     setDatos(d);
   };
   const elegirIps = (id: string) => { if (id !== selectedIps) { setSelectedSlot(null); setManual({}); } setSelectedIps(id); setMaxStep(2); };
@@ -338,7 +345,7 @@ function EmpresaSolicitar() {
   };
 
   const reiniciar = () => {
-    setDone(null); setStep(1); setMaxStep(1); setTouched1(false); setEmpleadoId(null); setCodigo(""); setDatos({});
+    setDone(null); setStep(1); setMaxStep(1); setTouched1(false); setEmpleadoId(null); setCodigo(""); setDatos({}); setCargoNuevoId("");
     setEnfasisPropios(null); setArchivo(null); setQuitadas(new Set()); setMapeo({}); reiniciarDesdeIps(); setBookError(null);
   };
 

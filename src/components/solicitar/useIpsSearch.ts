@@ -2,15 +2,12 @@ import { useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { DEPARTAMENTOS, haversineKm } from "@/lib/colombia";
 import { supabase } from "@/lib/supabase";
-import { useLineas, useServicios, derivarLineas } from "@/lib/hooks/useCatalogos";
 import { precioKey, usePreciosServicios } from "@/lib/hooks/usePrecios";
-import type { Profile, IpsFoto, Servicio, Slot } from "@/lib/database.types";
+import type { Profile, Servicio, Slot } from "@/lib/database.types";
 import { hoyISO } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export type LatLng = { lat: number; lng: number };
-
-export const soloDigitos = (v: string) => v.replace(/\D/g, "");
 
 export function formatDistancia(km: number) {
   if (km >= 999) return "Distancia no disponible";
@@ -42,25 +39,19 @@ export interface Cobertura {
 }
 
 /**
- * Búsqueda de IPS compartida por los flujos de particular y empresa:
- * IPS de la ciudad, fotos de portada, qué pruebas de la evaluación hace cada una
- * (`pruebas`), disponibilidad (cupos libres desde hoy en las IPS que hacen al
- * menos una), filtro por línea de servicio (solo las activas) y orden por distancia.
+ * Búsqueda de IPS compartida por los flujos de particular y empresa: IPS de la
+ * ciudad ordenadas por distancia, qué pruebas de la evaluación hace cada una
+ * (`pruebas`, ya filtradas a líneas activas) y disponibilidad (cupos libres
+ * desde hoy en las IPS que hacen al menos una).
  */
 export function useIpsSearch({
-  depto, ciudad, userLoc, filtro, selectedIps, pruebas,
+  depto, ciudad, userLoc, pruebas,
 }: {
   depto: string;
   ciudad: string;
   userLoc: LatLng | null;
-  filtro: string[];
-  selectedIps: string | null;
   pruebas: Pick<Servicio, "id" | "nombre">[];
 }) {
-  const { data: todasLasLineas = [] } = useLineas();
-  const lineas = useMemo(() => todasLasLineas.filter((l) => l.activo), [todasLasLineas]);
-  const { data: catalogoServicios = [] } = useServicios();
-
   const { data: ipsEnCiudad = [], isLoading: ipsLoading, isError: ipsError, refetch: refetchIps } = useQuery({
     queryKey: ["ips", ciudad],
     queryFn: async () => {
@@ -72,18 +63,6 @@ export function useIpsSearch({
   });
 
   const ipsIds = ipsEnCiudad.map((i) => i.id);
-  const { data: portadas = [] } = useQuery({
-    queryKey: ["ips-fotos-portadas", ipsIds],
-    queryFn: async () => {
-      if (ipsIds.length === 0) return [];
-      const { data, error } = await supabase.from("ips_fotos").select("*").in("ips_id", ipsIds).eq("orden", 0);
-      if (error) throw error;
-      return data as IpsFoto[];
-    },
-    enabled: ipsIds.length > 0,
-  });
-  const portadaUrl = (ipsId: string) => portadas.find((f) => f.ips_id === ipsId)?.url;
-
   const hoy = hoyISO();
   const { data: libres = [], isLoading: libresLoading } = useQuery({
     queryKey: ["slots", "resumen", ipsIds, hoy],
@@ -138,31 +117,16 @@ export function useIpsSearch({
     [userLoc, ciudadObj],
   );
 
-  const ipsConDistancia = useMemo(() => {
-    return ipsEnCiudad
-      .filter((ips) => {
-        if (filtro.length === 0) return true;
-        return derivarLineas(ips.servicios ?? [], catalogoServicios).some((c) => filtro.includes(c));
-      })
-      .map((ips) => ({
-        ips,
-        distancia: ips.lat && ips.lng ? haversineKm(centro, { lat: ips.lat, lng: ips.lng }) : 999,
-      }))
-      .sort((a, b) => a.distancia - b.distancia);
-  }, [ipsEnCiudad, centro, filtro, catalogoServicios]);
-
-  const markers = useMemo(
-    () =>
-      ipsConDistancia
-        .filter(({ ips }) => ips.lat != null && ips.lng != null)
-        .map(({ ips }) => ({ id: ips.id, lat: ips.lat!, lng: ips.lng!, title: ips.nombre, selected: ips.id === selectedIps })),
-    [ipsConDistancia, selectedIps],
+  const ipsConDistancia = useMemo(
+    () => ipsEnCiudad
+      .map((ips) => ({ ips, distancia: ips.lat && ips.lng ? haversineKm(centro, { lat: ips.lat, lng: ips.lng }) : 999 }))
+      .sort((a, b) => a.distancia - b.distancia),
+    [ipsEnCiudad, centro],
   );
 
   return {
-    lineas, catalogoServicios, ipsEnCiudad, ipsLoading, ipsError, refetchIps, portadaUrl,
-    disponibilidad, libresLoading: libresLoading || preciosLoading, ipsConDistancia, markers, centro,
-    coberturaDe, preciosLoading,
+    ipsEnCiudad, ipsLoading, ipsError, refetchIps, disponibilidad, libresLoading: libresLoading || preciosLoading,
+    ipsConDistancia, centro, coberturaDe, preciosLoading,
   };
 }
 

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { formatDuracion } from "../_shared/formato.ts"
 
 serve(async (req) => {
   const payload = await req.json()
@@ -24,9 +25,9 @@ serve(async (req) => {
   const { data: { user: ipsUser } } = await supabase.auth.admin.getUserById(record.ips_id)
   const { data: { user: solUser } } = await supabase.auth.admin.getUserById(record.solicitante_id)
 
-  // Datos que no vienen en el registro del trigger o que se completan después de
-  // crear la cita (empleado y aviso, migración 022). La función corre después
-  // de confirmarse la transacción, así que la cita ya tiene todo.
+  // Datos que no vienen en el registro del trigger: el correo del empleado, las
+  // pruebas (se insertan después de la cita) y las indicaciones. La función corre
+  // después de confirmarse la transacción, así que ya están todas.
   const [{ data: cita }, { data: pruebas }, { data: tipo }] = await Promise.all([
     supabase.from('appointments').select('avisar_empleado, empleado:empleados(correo)').eq('id', record.id).maybeSingle(),
     supabase.from('citas_pruebas').select('servicio, info:servicios(indicaciones, duracion_min)').eq('appointment_id', record.id),
@@ -56,7 +57,7 @@ serve(async (req) => {
   const escapar = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   // Duración e indicaciones: para el paciente (particular o empleado), no para la IPS.
   const preparacion = isCancel ? '' : `
-      ${duracion > 0 ? `<p>Duración aproximada de la visita: ${duracion >= 60 ? `${Math.floor(duracion / 60)} h ${duracion % 60 ? `${duracion % 60} min` : ''}` : `${duracion} min`}.</p>` : ''}
+      ${duracion > 0 ? `<p>Duración aproximada de la visita: ${formatDuracion(duracion)}.</p>` : ''}
       ${indicaciones.length ? `<p><strong>Antes de tu cita</strong></p><ul>${indicaciones.map((i) => `<li>${escapar(i)}</li>`).join('')}</ul>` : ''}`
 
   const renderHtml = (texto: string, extra = '') => `

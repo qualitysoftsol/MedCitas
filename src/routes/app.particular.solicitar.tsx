@@ -109,7 +109,7 @@ function ParticularSolicitar() {
   const paso1Ok = cedulaOk && !!tipo && datosOk && !enfasisError;
 
   // ── IPS, horario y valor ──
-  const search = useIpsSearch({ depto, ciudad, userLoc, filtro: [], selectedIps, pruebas: evaluacion.pruebas });
+  const search = useIpsSearch({ depto, ciudad, userLoc, pruebas: evaluacion.pruebas });
   const ipsSel = search.ipsEnCiudad.find((i) => i.id === selectedIps) ?? null;
   const cobertura = search.coberturaDe(selectedIps);
   const ipsOk = !!cobertura && cobertura.hechas.length > 0 && !!search.disponibilidad.get(selectedIps ?? "");

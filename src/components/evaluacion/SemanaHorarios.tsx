@@ -34,7 +34,8 @@ function rango(desde: string, hasta: string) {
 
 /**
  * Semana con los cupos de cada día y las horas libres del día elegido.
- * Varios cupos a la misma hora se muestran como una sola hora.
+ * Varios cupos a la misma hora se muestran como una sola hora; si el cupo que
+ * se envía ya se tomó, crear_cita_interna usa otro libre de esa hora (022).
  */
 export function SemanaHorarios({
   slots, loading, selectedSlot, onSelect, onOtraIps,
@@ -57,7 +58,11 @@ export function SemanaHorarios({
 
   const seleccionado = slots.find((s) => s.id === selectedSlot) ?? null;
   const primera = seleccionado?.fecha ?? [...porFecha.keys()][0] ?? hoy;
-  const [lunes, setLunes] = useState(() => lunesDe(primera));
+  // Hasta que el usuario cambie de semana, se muestra la del cupo elegido o la
+  // del primer cupo libre (que puede llegar después del primer render).
+  const [semanaElegida, setSemanaElegida] = useState<string | null>(null);
+  const lunes = semanaElegida ?? lunesDe(primera);
+  const setLunes = setSemanaElegida;
   const [fecha, setFecha] = useState<string | null>(seleccionado?.fecha ?? null);
 
   const dias = Array.from({ length: 7 }, (_, i) => sumarDias(lunes, i));

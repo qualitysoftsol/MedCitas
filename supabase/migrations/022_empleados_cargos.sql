@@ -8,7 +8,10 @@
 -- 1. Cargos de cada empresa con sus énfasis (cargos, cargo_enfasis) y
 --    directorio de empleados (empleados). Solo los ve y edita su empresa.
 -- 2. Las citas guardan el empleado (empleado_id) y si hay que avisarle por
---    correo (avisar_empleado).
+--    correo (avisar_empleado). Desde el navegador solo se cambia el estado de
+--    una cita; el resto lo fija crear_cita_interna en el mismo INSERT, que ahora
+--    también guarda la aceptación de la política y usa otro cupo de la misma
+--    hora si el elegido se acaba de tomar.
 -- 3. Las empresas agendan con:
 --    · agendar_cita_empresa: un empleado del directorio.
 --    · agendar_lote_empresa: el archivo; crea o actualiza cada empleado por
@@ -112,7 +115,209 @@ BEGIN
 END;
 $$;
 
--- ─── 3. Agendar como empresa ─────────────────────────────────────────────────
+-- Desde el navegador solo se cambia el estado de una cita (cancelar, atender).
+-- El resto lo fijan las funciones que la crean; antes la política de
+-- actualización (002) permitía tocar cualquier columna. Igual que en la 018,
+-- no aplica a las Edge Functions ni a pg_cron (sin auth.uid()), ni al renombre
+-- de un servicio (019), que actualiza el resumen de pruebas.
+CREATE OR REPLACE FUNCTION validar_cambio_cita()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  _rol text;
+BEGIN
+  IF auth.uid() IS NULL OR current_setting('medcitas.renombrando_servicio', true) = 'on' THEN
+    RETURN NEW;
+  END IF;
+  SELECT role::text INTO _rol FROM profiles WHERE id = NEW.solicitante_id;
+
+  IF TG_OP = 'INSERT' THEN
+    IF _rol = 'particular' THEN
+      RAISE EXCEPTION 'Las citas de particulares se agendan con pago en línea.'
+        USING HINT = 'REQUIERE_PAGO';
+    END IF;
+    RETURN NEW;
+  END IF;
+
+  IF (NEW.slot_id, NEW.ips_id, NEW.solicitante_id, NEW.empleado_nombre, NEW.empleado_cedula, NEW.tipo_examen,
+      NEW.tipo_evaluacion, NEW.fecha, NEW.hora, NEW.ciudad, NEW.servicio, NEW.datos_evaluacion, NEW.enfasis,
+      NEW.cargo, NEW.politica_aceptada_at, NEW.empleado_id, NEW.avisar_empleado, NEW.created_at)
+     IS DISTINCT FROM
+     (OLD.slot_id, OLD.ips_id, OLD.solicitante_id, OLD.empleado_nombre, OLD.empleado_cedula, OLD.tipo_examen,
+      OLD.tipo_evaluacion, OLD.fecha, OLD.hora, OLD.ciudad, OLD.servicio, OLD.datos_evaluacion, OLD.enfasis,
+      OLD.cargo, OLD.politica_aceptada_at, OLD.empleado_id, OLD.avisar_empleado, OLD.created_at) THEN
+    RAISE EXCEPTION 'Solo se puede cambiar el estado de la cita.' USING HINT = 'CAMPO_PROTEGIDO';
+  END IF;
+
+  IF NEW.estado IS DISTINCT FROM OLD.estado THEN
+    IF OLD.estado IN ('pendiente_pago', 'expirada') THEN
+      RAISE EXCEPTION 'Esta cita se confirma o vence automáticamente según el pago.'
+        USING HINT = 'ESTADO_DE_PAGO';
+    END IF;
+    IF NEW.estado = 'cancelada' AND _rol = 'particular' AND auth.uid() = OLD.solicitante_id
+       AND ((OLD.fecha + OLD.hora) AT TIME ZONE 'America/Bogota') < now() + interval '12 hours' THEN
+      RAISE EXCEPTION 'Solo puedes cancelar hasta 12 horas antes de la cita.'
+        USING HINT = 'CANCELACION_TARDIA';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+-- ─── 3. Crear citas ──────────────────────────────────────────────────────────
+
+-- Igual que en la 020, y además:
+--   · guarda el empleado, el aviso y la aceptación de la política en el mismo
+--     INSERT (no hay actualizaciones posteriores que puedan fallar);
+--   · un particular debe aceptar la política (POLITICA_NO_ACEPTADA);
+--   · si el cupo elegido ya se tomó, usa otro libre de la misma IPS a la misma
+--     hora (cuando la IPS atiende a varios pacientes a la vez).
+DROP FUNCTION IF EXISTS public.crear_cita_interna(uuid, uuid, text, text, text, jsonb, uuid[], text, text, boolean);
+
+CREATE OR REPLACE FUNCTION public.crear_cita_interna(
+  p_solicitante       uuid,
+  p_slot_id           uuid,
+  p_empleado_nombre   text,
+  p_empleado_cedula   text,
+  p_tipo_evaluacion   text,
+  p_datos             jsonb,
+  p_enfasis_ids       uuid[],
+  p_cargo             text,
+  p_estado            text,
+  p_permitir_parcial  boolean,
+  p_empleado_id       uuid,
+  p_avisar            boolean,
+  p_politica_aceptada boolean
+)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  _rol        text;
+  _tipo       tipos_evaluacion%ROWTYPE;
+  _slot       slots%ROWTYPE;
+  _n_enfasis  int;
+  _n_excl     int;
+  _nombres    text[];
+  _pedidas    uuid[];
+  _hechas     uuid[];
+  _resumen    text;
+  _id         uuid;
+BEGIN
+  SELECT role::text INTO _rol FROM profiles WHERE id = p_solicitante;
+  IF _rol IS NULL OR _rol NOT IN ('empresa', 'particular') THEN
+    RAISE EXCEPTION 'Solo empresas y particulares agendan citas.' USING HINT = 'DATOS_INVALIDOS';
+  END IF;
+  IF _rol = 'particular' AND p_politica_aceptada IS NOT TRUE THEN
+    RAISE EXCEPTION 'Debes aceptar la política de tratamiento de datos.' USING HINT = 'POLITICA_NO_ACEPTADA';
+  END IF;
+  IF COALESCE(trim(p_empleado_nombre), '') = '' OR COALESCE(trim(p_empleado_cedula), '') = '' THEN
+    RAISE EXCEPTION 'Faltan el nombre o el documento del paciente.' USING HINT = 'DATOS_INVALIDOS';
+  END IF;
+
+  SELECT * INTO _tipo FROM tipos_evaluacion WHERE codigo = p_tipo_evaluacion;
+  IF NOT FOUND OR NOT (_rol = ANY(_tipo.roles_permitidos)) THEN
+    RAISE EXCEPTION 'Tipo de evaluación no válido.' USING HINT = 'DATOS_INVALIDOS';
+  END IF;
+  IF p_datos IS NULL THEN
+    RAISE EXCEPTION 'Faltan los datos de la evaluación.' USING HINT = 'DATOS_INVALIDOS';
+  END IF;
+  PERFORM validar_datos_evaluacion(p_tipo_evaluacion, p_datos, p_solicitante, p_empleado_cedula);
+
+  -- Énfasis: al menos uno, todos existentes; un excluyente va solo.
+  SELECT count(*), count(*) FILTER (WHERE exclusivo), array_agg(nombre ORDER BY orden NULLS LAST, nombre)
+  INTO _n_enfasis, _n_excl, _nombres
+  FROM enfasis WHERE id = ANY(p_enfasis_ids);
+  IF _n_enfasis = 0 OR _n_enfasis <> (SELECT count(DISTINCT x) FROM unnest(p_enfasis_ids) x) THEN
+    RAISE EXCEPTION 'Elige al menos un énfasis válido.' USING HINT = 'DATOS_INVALIDOS';
+  END IF;
+  IF _n_excl > 0 AND _n_enfasis > 1 THEN
+    RAISE EXCEPTION 'Un énfasis excluyente no se combina con otros.' USING HINT = 'DATOS_INVALIDOS';
+  END IF;
+
+  -- Pruebas pedidas: servicios de los énfasis que están en alguna línea activa.
+  SELECT array_agg(DISTINCT es.servicio_id) INTO _pedidas
+  FROM enfasis_servicios es
+  WHERE es.enfasis_id = ANY(p_enfasis_ids)
+    AND EXISTS (
+      SELECT 1 FROM servicio_lineas sl JOIN lineas_servicio l ON l.id = sl.linea_id
+      WHERE sl.servicio_id = es.servicio_id AND l.activo
+    );
+  IF _pedidas IS NULL THEN
+    RAISE EXCEPTION 'Los énfasis elegidos no tienen pruebas disponibles.' USING HINT = 'SIN_PRUEBAS';
+  END IF;
+
+  -- Bloquea el cupo: dos solicitudes al mismo tiempo no lo toman las dos.
+  SELECT * INTO _slot FROM slots WHERE id = p_slot_id FOR UPDATE;
+  IF FOUND AND _slot.taken THEN
+    SELECT * INTO _slot FROM slots s
+    WHERE s.ips_id = _slot.ips_id AND s.fecha = _slot.fecha AND s.hora = _slot.hora AND NOT s.taken
+    ORDER BY s.created_at
+    LIMIT 1
+    FOR UPDATE SKIP LOCKED;
+  END IF;
+  IF NOT FOUND OR _slot.taken OR (_slot.fecha + _slot.hora) <= (now() AT TIME ZONE 'America/Bogota') THEN
+    RAISE EXCEPTION 'Ese horario ya no está disponible.' USING HINT = 'HORARIO_TOMADO';
+  END IF;
+
+  -- Pruebas que hace la IPS: en su perfil y con precio.
+  SELECT array_agg(s.id) INTO _hechas
+  FROM servicios s
+  JOIN precios_ips p ON p.servicio_id = s.id AND p.ips_id = _slot.ips_id
+  JOIN profiles pr ON pr.id = _slot.ips_id
+  WHERE s.id = ANY(_pedidas) AND s.nombre = ANY(pr.servicios);
+  IF _hechas IS NULL THEN
+    RAISE EXCEPTION 'Esta IPS no hace ninguna de las pruebas de la evaluación.' USING HINT = 'SIN_PRUEBAS';
+  END IF;
+  IF NOT p_permitir_parcial AND cardinality(_hechas) < cardinality(_pedidas) THEN
+    RAISE EXCEPTION 'Esta IPS no hace todas las pruebas de la evaluación.' USING HINT = 'PRUEBAS_INCOMPLETAS';
+  END IF;
+
+  SELECT string_agg(s.nombre, ', ' ORDER BY
+           CASE s.tipo WHEN 'evaluacion_medica' THEN 0 WHEN 'prueba_complementaria' THEN 1 WHEN 'imagen' THEN 2 ELSE 3 END,
+           s.nombre)
+  INTO _resumen
+  FROM servicios s WHERE s.id = ANY(_hechas);
+
+  INSERT INTO appointments (
+    slot_id, ips_id, solicitante_id, empleado_nombre, empleado_cedula,
+    tipo_examen, tipo_evaluacion, fecha, hora, ciudad, servicio, estado,
+    datos_evaluacion, enfasis, cargo, empleado_id, avisar_empleado, politica_aceptada_at
+  ) VALUES (
+    _slot.id, _slot.ips_id, p_solicitante, trim(p_empleado_nombre), trim(p_empleado_cedula),
+    _tipo.nombre, _tipo.codigo, _slot.fecha, _slot.hora, _slot.ciudad, _resumen, p_estado::appointment_estado,
+    p_datos, _nombres, NULLIF(trim(p_cargo), ''), p_empleado_id, COALESCE(p_avisar, false),
+    CASE WHEN p_politica_aceptada THEN now() END
+  )
+  RETURNING id INTO _id;
+
+  INSERT INTO citas_pruebas (appointment_id, servicio_id, servicio, precio_ips, comision_pct, precio_total)
+  SELECT _id, s.id, s.nombre, p.precio, c.pct, precio_con_comision(p.precio, c.pct)
+  FROM servicios s
+  JOIN precios_ips p ON p.servicio_id = s.id AND p.ips_id = _slot.ips_id
+  CROSS JOIN LATERAL (SELECT comision_aplicable(_slot.ips_id, s.id, _rol) AS pct) c
+  WHERE s.id = ANY(_hechas);
+
+  -- comision_pct de la suma: el porcentaje efectivo (informativo).
+  INSERT INTO citas_precios (appointment_id, precio_ips, comision_pct, precio_total)
+  SELECT _id, sum(precio_ips),
+         CASE WHEN sum(precio_ips) > 0 THEN round((sum(precio_total)::numeric / sum(precio_ips) - 1) * 100, 2) ELSE 0 END,
+         sum(precio_total)
+  FROM citas_pruebas WHERE appointment_id = _id;
+
+  RETURN _id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.crear_cita_interna(uuid, uuid, text, text, text, jsonb, uuid[], text, text, boolean, uuid, boolean, boolean) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.crear_cita_interna(uuid, uuid, text, text, text, jsonb, uuid[], text, text, boolean, uuid, boolean, boolean) TO service_role;
+
+-- ─── 4. Agendar como empresa ─────────────────────────────────────────────────
 
 DROP FUNCTION IF EXISTS public.agendar_cita_empresa(uuid, text, text, text, jsonb, uuid[], text);
 DROP FUNCTION IF EXISTS public.agendar_lote_empresa(text, jsonb);
@@ -135,7 +340,6 @@ SET search_path = public
 AS $$
 DECLARE
   _e  empleados%ROWTYPE;
-  _id uuid;
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'empresa') THEN
     RAISE EXCEPTION 'Solo las empresas agendan por este medio.' USING HINT = 'DATOS_INVALIDOS';
@@ -148,10 +352,9 @@ BEGIN
     RAISE EXCEPTION 'Faltan los datos de la evaluación.' USING HINT = 'DATOS_INVALIDOS';
   END IF;
 
-  _id := crear_cita_interna(auth.uid(), p_slot_id, _e.nombres || ' ' || _e.apellidos, _e.numero,
-                            p_tipo_evaluacion, p_datos, p_enfasis_ids, p_cargo, 'agendada', true);
-  UPDATE appointments SET empleado_id = _e.id, avisar_empleado = COALESCE(p_avisar, false) WHERE id = _id;
-  RETURN _id;
+  RETURN crear_cita_interna(auth.uid(), p_slot_id, _e.nombres || ' ' || _e.apellidos, _e.numero,
+                            p_tipo_evaluacion, p_datos, p_enfasis_ids, p_cargo, 'agendada', true,
+                            _e.id, p_avisar, NULL);
 END;
 $$;
 
@@ -178,7 +381,6 @@ DECLARE
   _enfasis  uuid[];
   _emp_id   uuid;
   _datos    jsonb;
-  _id       uuid;
   _tomados  text;
   _n        int := 0;
 BEGIN
@@ -216,6 +418,11 @@ BEGIN
     IF _enfasis IS NULL THEN
       RAISE EXCEPTION 'El cargo "%" no tiene énfasis. Defínelos en Cargos.', _cargo.nombre USING HINT = 'DATOS_INVALIDOS';
     END IF;
+    -- Un énfasis pudo volverse excluyente después de armar el cargo.
+    IF cardinality(_enfasis) > 1 AND EXISTS (SELECT 1 FROM enfasis WHERE id = ANY(_enfasis) AND exclusivo) THEN
+      RAISE EXCEPTION 'El cargo "%" combina un énfasis excluyente con otros. Corrígelo en Cargos.', _cargo.nombre
+        USING HINT = 'DATOS_INVALIDOS';
+    END IF;
 
     INSERT INTO empleados (empresa_id, tipo_doc, numero, nombres, apellidos, cargo_id, celular, correo)
     VALUES (
@@ -235,11 +442,11 @@ BEGIN
       ELSE                    jsonb_build_object('empresa', _empresa.nombre, 'fecha_retiro', _c->>'fecha_retiro')
     END;
 
-    _id := crear_cita_interna(
+    PERFORM crear_cita_interna(
       _empresa.id, (_c->>'slot_id')::uuid, trim(_c->>'nombres') || ' ' || trim(_c->>'apellidos'), trim(_c->>'numero'),
-      p_tipo_evaluacion, _datos, _enfasis, _cargo.nombre, 'agendada', false
+      p_tipo_evaluacion, _datos, _enfasis, _cargo.nombre, 'agendada', false,
+      _emp_id, p_avisar, NULL
     );
-    UPDATE appointments SET empleado_id = _emp_id, avisar_empleado = COALESCE(p_avisar, false) WHERE id = _id;
     _n := _n + 1;
   END LOOP;
   RETURN _n;
@@ -249,7 +456,7 @@ $$;
 REVOKE ALL ON FUNCTION public.agendar_lote_empresa(text, boolean, jsonb) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.agendar_lote_empresa(text, boolean, jsonb) TO authenticated;
 
--- ─── 4. Días de crédito y vencimiento de facturas ────────────────────────────
+-- ─── 5. Días de crédito y vencimiento de facturas ────────────────────────────
 
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS dias_credito smallint NOT NULL DEFAULT 30
   CHECK (dias_credito BETWEEN 0 AND 365);

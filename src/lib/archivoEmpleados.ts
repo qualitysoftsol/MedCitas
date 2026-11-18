@@ -1,6 +1,6 @@
 import { readSheet } from "read-excel-file/browser";
 import writeXlsxFile from "write-excel-file/browser";
-import type { Cargo, TipoDoc } from "@/lib/database.types";
+import type { Cargo, Enfasis, TipoDoc } from "@/lib/database.types";
 import { errorCelular, errorCorreo, errorDocumento } from "@/lib/hooks/useEmpresa";
 
 // Archivo de empleados para agendar en lote (.xlsx o .csv): una fila por empleado.
@@ -45,7 +45,14 @@ export interface FilaArchivo {
 export interface ArchivoLeido { nombre: string; columnas: string[]; filas: FilaArchivo[] }
 
 const iso = (y: number, m: number, d: number) => `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-const esIso = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(new Date(`${s}T00:00:00`).getTime());
+/** 'YYYY-MM-DD' de un día que existe: Date convierte el 31/02 en 3/03, así que se compara de vuelta. */
+function esIso(s: string) {
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return false;
+  const [y, mes, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const f = new Date(y, mes - 1, d);
+  return f.getFullYear() === y && f.getMonth() === mes - 1 && f.getDate() === d;
+}
 
 /** Celda a texto. Las fechas llegan como Date (UTC), número de serie de Excel o texto dd/mm/aaaa. */
 function texto(v: unknown, fecha = false): string {
@@ -146,8 +153,9 @@ export interface FilaValidada extends FilaArchivo {
  * Valida cada fila. `mapeo` traduce un cargo del archivo (normalizado) a uno de
  * Cargos: así "Bodeguero" se resuelve una vez para todas sus filas.
  */
-export function validarFilas(filas: FilaArchivo[], cargos: Cargo[], codigo: string, mapeo: Record<string, string>): FilaValidada[] {
+export function validarFilas(filas: FilaArchivo[], cargos: Cargo[], enfasis: Enfasis[], codigo: string, mapeo: Record<string, string>): FilaValidada[] {
   const vistos = new Map<string, number>();
+  const excluyentes = new Set(enfasis.filter((e) => e.exclusivo).map((e) => e.id));
   return filas.map((f) => {
     const errores: string[] = [];
     const tipoDoc = f.tipo_doc ? TIPOS[normalizar(f.tipo_doc)] ?? null : "CC";
@@ -163,6 +171,10 @@ export function validarFilas(filas: FilaArchivo[], cargos: Cargo[], codigo: stri
     if (!f.cargo) errores.push("Falta el cargo.");
     else if (cargoDesconocido) errores.push(`El cargo «${f.cargo}» no existe.`);
     else if (cargoObj && cargoObj.enfasis_ids.length === 0) errores.push(`El cargo «${cargoObj.nombre}» no tiene énfasis.`);
+    // Un énfasis pudo volverse excluyente después de armar el cargo (agendar_lote_empresa lo rechaza).
+    else if (cargoObj && cargoObj.enfasis_ids.length > 1 && cargoObj.enfasis_ids.some((id) => excluyentes.has(id))) {
+      errores.push(`El cargo «${cargoObj.nombre}» combina un énfasis excluyente con otros. Corrígelo en Cargos.`);
+    }
 
     const errCel = errorCelular(f.celular);
     if (errCel) errores.push(errCel);

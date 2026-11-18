@@ -4,8 +4,8 @@
 //
 // POST { slot_id, empleado_cedula, tipo_evaluacion, enfasis_ids, datos_evaluacion, acepta_politica } → reserva nueva
 // POST { appointment_id }                                                                           → reintento
-// La cita, sus pruebas y su precio los crea crear_cita_interna (migración 020).
-// acepta_politica debe ser true: se guarda en appointments.politica_aceptada_at (021).
+// La cita, sus pruebas y su precio los crea crear_cita_interna (migraciones 020 y 022).
+// acepta_politica debe ser true: la misma función la guarda en appointments.politica_aceptada_at.
 // Responde { pago_id, redirect_url }.
 //
 // Secretos: los de _shared/rapyd.ts, APP_URL (la usa rapyd-retorno) y,
@@ -82,8 +82,12 @@ serve(async (req) => {
       p_cargo: datos_evaluacion?.cargo ?? null,
       p_estado: 'pendiente_pago',
       p_permitir_parcial: true,
+      p_empleado_id: null,
+      p_avisar: false,
+      p_politica_aceptada: true,
     })
     if (error) {
+      if (error.hint === 'POLITICA_NO_ACEPTADA') return responder(400, { error: error.message, codigo: 'POLITICA_NO_ACEPTADA' })
       if (error.code === '23505' || error.hint === 'HORARIO_TOMADO') return responder(409, { error: 'Ese horario ya no está disponible.', codigo: 'HORARIO_TOMADO' })
       if (error.hint === 'SIN_PRUEBAS' || error.hint === 'PRUEBAS_INCOMPLETAS') return responder(409, { error: error.message, codigo: 'SIN_PRUEBAS' })
       if (error.hint === 'DATOS_INVALIDOS') return responder(400, { error: error.message, codigo: 'DATOS_INVALIDOS' })
@@ -91,7 +95,6 @@ serve(async (req) => {
       return responder(500, { error: 'No pudimos crear la reserva.' })
     }
     citaNueva = citaId as string
-    await supabase.from('appointments').update({ politica_aceptada_at: new Date().toISOString() }).eq('id', citaNueva)
 
     const { data: precio } = await supabase.from('citas_precios').select('precio_total').eq('appointment_id', citaNueva).single()
     const expira = new Date(Date.now() + MINUTOS_RESERVA * 60_000).toISOString()

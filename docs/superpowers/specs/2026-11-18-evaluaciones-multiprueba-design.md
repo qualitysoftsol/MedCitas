@@ -225,7 +225,9 @@ Implementación:
 - `agendar_lote_empresa(p_tipo_evaluacion, p_avisar, p_citas)`: crea o actualiza cada empleado por documento, toma los énfasis del cargo y arma los datos del tipo (empresa = la que agenda; Periódica = programada).
 - Los datos del tipo son obligatorios para todas las citas (trigger de la 021 extendido).
 - `profiles.dias_credito` solo lo cambia el admin (trigger `profile_dias_credito`). Se edita en el Panel, en la lista de empresas.
-- `notify-appointment` vuelve a leer la cita (el empleado y el aviso se completan después de crearla) y manda al empleado, si tiene correo, la cita, la dirección, las pruebas, la duración y las indicaciones.
+- `notify-appointment` lee el correo del empleado, las pruebas y las indicaciones, y le manda al empleado, si tiene correo, la cita, la dirección, las pruebas, la duración y las indicaciones.
+- `crear_cita_interna` (versión final en la 022) guarda el empleado, el aviso y la aceptación de la política en el mismo INSERT. Exige la política a los particulares, y si el cupo elegido ya se tomó usa otro libre de la misma IPS a la misma hora.
+- `validar_cambio_cita`: desde el navegador solo se puede cambiar el `estado` de una cita (`CAMPO_PROTEGIDO`). La política de actualización de la 002 dejaba cambiar cualquier columna.
 
 ---
 
