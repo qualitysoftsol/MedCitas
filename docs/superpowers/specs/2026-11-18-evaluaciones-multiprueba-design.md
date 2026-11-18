@@ -176,7 +176,8 @@ Las validaciones de `datos_evaluacion` se hacen en el cliente **y** en `_crear_c
 
 ### Etapa 3 · `021_politica_datos.sql`
 
-- `appointments.politica_aceptada_at timestamptz`: se llena al crear la cita del particular, que debe aceptar la casilla.
+- `appointments.politica_aceptada_at timestamptz`: se llena al crear la cita del particular, que debe aceptar la casilla. `rapyd-checkout` exige `acepta_politica: true` y la registra.
+- Trigger `appointment_exigir_datos`: rechaza la cita de un particular sin `datos_evaluacion`. La 022 lo extiende a las empresas.
 
 ### Etapa 4 · `022_empleados_cargos.sql`
 

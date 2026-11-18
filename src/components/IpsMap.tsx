@@ -46,6 +46,8 @@ export interface MapMarker {
   lng: number;
   title?: string;
   selected?: boolean;
+  /** Número que se muestra sobre el pin, igual al de la lista. */
+  numero?: number;
 }
 
 // Icono original: pin estándar de Google; la IPS seleccionada se marca con un círculo.
@@ -133,6 +135,7 @@ export function IpsMap({
         current.set(m.id, mk);
       }
       mk.setIcon(markerIcon(!!m.selected));
+      mk.setLabel(m.numero ? { text: String(m.numero), color: "#fff", fontSize: "12px", fontWeight: "700" } : null);
       mk.setZIndex(m.selected ? 1000 : 1);
     });
 

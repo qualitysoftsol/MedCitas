@@ -32,8 +32,10 @@ type NuevaReserva = {
   /** Código del tipo de evaluación (PRE_INGRESO…). */
   tipo_evaluacion: string
   enfasis_ids: string[]
-  /** Datos del tipo de evaluación; null mientras el flujo no los pida. */
-  datos_evaluacion?: Record<string, unknown> | null
+  /** Datos que pide el tipo de evaluación (ver lib/datosEvaluacion). */
+  datos_evaluacion: Record<string, unknown>
+  /** Aceptó la política de tratamiento de datos. */
+  acepta_politica: boolean
 }
 
 /**

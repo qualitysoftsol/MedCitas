@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as PoliticaDatosRouteImport } from './routes/politica-datos'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
@@ -36,6 +37,11 @@ import { Route as AppAdminCatalogosRouteImport } from './routes/app.admin.catalo
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PoliticaDatosRoute = PoliticaDatosRouteImport.update({
+  id: '/politica-datos',
+  path: '/politica-datos',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -153,6 +159,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
   '/auth': typeof AuthRoute
+  '/politica-datos': typeof PoliticaDatosRoute
   '/reset-password': typeof ResetPasswordRoute
   '/app/perfil': typeof AppPerfilRoute
   '/app/admin/catalogos': typeof AppAdminCatalogosRoute
@@ -178,6 +185,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
   '/auth': typeof AuthRoute
+  '/politica-datos': typeof PoliticaDatosRoute
   '/reset-password': typeof ResetPasswordRoute
   '/app/perfil': typeof AppPerfilRoute
   '/app/admin/catalogos': typeof AppAdminCatalogosRoute
@@ -204,6 +212,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
   '/auth': typeof AuthRoute
+  '/politica-datos': typeof PoliticaDatosRoute
   '/reset-password': typeof ResetPasswordRoute
   '/app/perfil': typeof AppPerfilRoute
   '/app/admin/catalogos': typeof AppAdminCatalogosRoute
@@ -231,6 +240,7 @@ export interface FileRouteTypes {
     | '/'
     | '/app'
     | '/auth'
+    | '/politica-datos'
     | '/reset-password'
     | '/app/perfil'
     | '/app/admin/catalogos'
@@ -256,6 +266,7 @@ export interface FileRouteTypes {
     | '/'
     | '/app'
     | '/auth'
+    | '/politica-datos'
     | '/reset-password'
     | '/app/perfil'
     | '/app/admin/catalogos'
@@ -281,6 +292,7 @@ export interface FileRouteTypes {
     | '/'
     | '/app'
     | '/auth'
+    | '/politica-datos'
     | '/reset-password'
     | '/app/perfil'
     | '/app/admin/catalogos'
@@ -307,6 +319,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
   AuthRoute: typeof AuthRoute
+  PoliticaDatosRoute: typeof PoliticaDatosRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
 }
 
@@ -317,6 +330,13 @@ declare module '@tanstack/react-router' {
       path: '/reset-password'
       fullPath: '/reset-password'
       preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/politica-datos': {
+      id: '/politica-datos'
+      path: '/politica-datos'
+      fullPath: '/politica-datos'
+      preLoaderRoute: typeof PoliticaDatosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -526,6 +546,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
   AuthRoute: AuthRoute,
+  PoliticaDatosRoute: PoliticaDatosRoute,
   ResetPasswordRoute: ResetPasswordRoute,
 }
 export const routeTree = rootRouteImport

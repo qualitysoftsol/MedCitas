@@ -2,9 +2,10 @@
 // 30 minutos) y la página de pago de Rapyd. También sirve para reintentar el
 // pago de una reserva vigente.
 //
-// POST { slot_id, empleado_cedula, tipo_evaluacion, enfasis_ids, datos_evaluacion? } → reserva nueva
-// POST { appointment_id }                                                            → reintento
+// POST { slot_id, empleado_cedula, tipo_evaluacion, enfasis_ids, datos_evaluacion, acepta_politica } → reserva nueva
+// POST { appointment_id }                                                                           → reintento
 // La cita, sus pruebas y su precio los crea crear_cita_interna (migración 020).
+// acepta_politica debe ser true: se guarda en appointments.politica_aceptada_at (021).
 // Responde { pago_id, redirect_url }.
 //
 // Secretos: los de _shared/rapyd.ts, APP_URL (la usa rapyd-retorno) y,
@@ -58,9 +59,15 @@ serve(async (req) => {
     }
     pago = data
   } else {
-    const { slot_id, empleado_cedula, tipo_evaluacion, enfasis_ids, datos_evaluacion } = body
-    if (!slot_id || !/^\d{5,12}$/.test(String(empleado_cedula ?? '')) || !tipo_evaluacion || !Array.isArray(enfasis_ids)) {
+    const { slot_id, empleado_cedula, tipo_evaluacion, enfasis_ids, datos_evaluacion, acepta_politica } = body
+    if (
+      !slot_id || !/^\d{5,12}$/.test(String(empleado_cedula ?? '')) || !tipo_evaluacion || !Array.isArray(enfasis_ids)
+      || !datos_evaluacion || typeof datos_evaluacion !== 'object'
+    ) {
       return responder(400, { error: 'Faltan datos de la cita.' })
+    }
+    if (acepta_politica !== true) {
+      return responder(400, { error: 'Debes aceptar la política de tratamiento de datos.', codigo: 'POLITICA_NO_ACEPTADA' })
     }
 
     // Pruebas, precio y datos de la cita los calcula y valida la base de datos.
@@ -70,7 +77,7 @@ serve(async (req) => {
       p_empleado_nombre: perfil.nombre,
       p_empleado_cedula: String(empleado_cedula),
       p_tipo_evaluacion: tipo_evaluacion,
-      p_datos: datos_evaluacion ?? null,
+      p_datos: datos_evaluacion,
       p_enfasis_ids: enfasis_ids,
       p_cargo: datos_evaluacion?.cargo ?? null,
       p_estado: 'pendiente_pago',
@@ -84,6 +91,7 @@ serve(async (req) => {
       return responder(500, { error: 'No pudimos crear la reserva.' })
     }
     citaNueva = citaId as string
+    await supabase.from('appointments').update({ politica_aceptada_at: new Date().toISOString() }).eq('id', citaNueva)
 
     const { data: precio } = await supabase.from('citas_precios').select('precio_total').eq('appointment_id', citaNueva).single()
     const expira = new Date(Date.now() + MINUTOS_RESERVA * 60_000).toISOString()

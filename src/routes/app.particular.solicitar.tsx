@@ -1,271 +1,486 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import {
-  CalendarPlus, ClipboardList, MapPin, Building2, CalendarClock, CircleCheckBig, Info, Loader2, IdCard, UserRound, Wallet, CreditCard,
+  AlertTriangle, CalendarClock, CalendarPlus, Check, ChevronLeft, ChevronRight, ChevronDown, ClipboardList, CreditCard, Info, Loader2, Lock,
+  MapPin, Navigation,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { DEPARTAMENTOS } from "@/lib/colombia";
+import type { Servicio } from "@/lib/database.types";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { PageHeader } from "@/components/app/PageHeader";
-import { FormField, IconInput } from "@/components/app/FormField";
 import { useAuth } from "@/lib/auth-context";
 import { useAvailableSlots } from "@/lib/hooks/useSlots";
+import { useAppointments } from "@/lib/hooks/useAppointments";
 import { PagoError, useIniciarPago } from "@/lib/hooks/usePagos";
 import { useTiposEvaluacion } from "@/lib/hooks/useCatalogos";
-import { capitalizar, fechaPartes, formatFecha, formatFechaCorta, formatHora, formatPesos, hoyISO } from "@/lib/format";
-import { ConfirmRow, Resumen, StepHeading, Stepper, TotalRow, WizardNav, type WizardStep } from "@/components/solicitar/WizardParts";
-import { HorarioPicker, IpsStep, TipoExamenPicker, UbicacionStep } from "@/components/solicitar/Steps";
-import { esFuturo, soloDigitos, useIpsSearch, type LatLng } from "@/components/solicitar/useIpsSearch";
+import {
+  erroresDatos, formatDuracion, indicacionesDe, limpiarDatos, type DatosEvaluacion, type Indicacion,
+} from "@/lib/datosEvaluacion";
+import { capitalizar, fechaPartes, formatFechaLarga, formatHora, formatPesos, hoyISO, iniciales, parseFecha } from "@/lib/format";
+import { Stepper, type WizardStep } from "@/components/solicitar/WizardParts";
+import { esFuturo, useIpsSearch, type LatLng } from "@/components/solicitar/useIpsSearch";
 import { useEvaluacion } from "@/components/solicitar/useEvaluacion";
+import { DatosEvaluacionForm, MotivoPicker, type Referencia } from "@/components/evaluacion/MotivoEvaluacion";
+import { EnfasisChips } from "@/components/evaluacion/EnfasisChips";
+import { IpsEleccion } from "@/components/evaluacion/IpsEleccion";
+import { SemanaHorarios } from "@/components/evaluacion/SemanaHorarios";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/app/particular/solicitar")({
   component: ParticularSolicitar,
 });
 
 const STEPS: readonly WizardStep[] = [
-  { id: 1, title: "Información", short: "Datos", icon: ClipboardList },
-  { id: 2, title: "Ubicación", short: "Ubicación", icon: MapPin },
-  { id: 3, title: "Selección de IPS", short: "IPS", icon: Building2 },
-  { id: 4, title: "Fecha y hora", short: "Horario", icon: CalendarClock },
-  { id: 5, title: "Confirmación", short: "Confirmar", icon: CircleCheckBig },
+  { id: 1, title: "Evaluación", short: "Evaluación", icon: ClipboardList },
+  { id: 2, title: "IPS y ubicación", short: "IPS", icon: MapPin },
+  { id: 3, title: "Fecha y hora", short: "Horario", icon: CalendarClock },
+  { id: 4, title: "Confirmar y pagar", short: "Pagar", icon: CreditCard },
 ];
 const TOTAL = STEPS.length;
+const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 
+/** "3 mar 2026" */
+const fechaCorta = (fecha: string) => {
+  const d = parseFecha(fecha);
+  return `${d.getDate()} ${MESES_CORTOS[d.getMonth()]} ${d.getFullYear()}`;
+};
 
 function ParticularSolicitar() {
   const { profile } = useAuth();
-  const [step, setStep] = useState(1);
-  const [maxStep, setMaxStep] = useState(1);
+  const qc = useQueryClient();
+  const iniciarPago = useIniciarPago();
   const headingRef = useRef<HTMLHeadingElement>(null);
 
-  const [cedula, setCedula] = useState(profile?.cedula ?? "");
-  const [tipoExamen, setTipoExamen] = useState<string>("");
-  const [filtro, setFiltro] = useState<string[]>([]);
-  const [depto, setDepto] = useState("Cundinamarca");
-  const [ciudad, setCiudad] = useState("Bogotá");
+  const [step, setStep] = useState(1);
+  const [maxStep, setMaxStep] = useState(1);
+  const [codigo, setCodigo] = useState("");
+  const [datos, setDatos] = useState<DatosEvaluacion>({});
+  const [enfasisIds, setEnfasisIds] = useState<string[]>([]);
+  const [touched1, setTouched1] = useState(false);
+  const [depto, setDepto] = useState(profile?.departamento || "Cundinamarca");
+  const [ciudad, setCiudad] = useState(profile?.ciudad || "Bogotá");
   const [direccion, setDireccion] = useState(profile?.direccion ?? "");
   const [userLoc, setUserLoc] = useState<LatLng | null>(null);
   const [selectedIps, setSelectedIps] = useState<string | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
-  const [selectedFecha, setSelectedFecha] = useState<string | null>(null);
-  const [touched1, setTouched1] = useState(false);
+  const [aceptaPolitica, setAceptaPolitica] = useState(false);
+  const [aceptaCancelacion, setAceptaCancelacion] = useState(false);
+  const [touched4, setTouched4] = useState(false);
   const [bookError, setBookError] = useState<string | null>(null);
 
-  const qc = useQueryClient();
-  const iniciarPago = useIniciarPago();
-  const { data: tiposExamen = [], isLoading: tiposLoading } = useTiposEvaluacion();
-  const tiposDisponibles = useMemo(() => tiposExamen.filter((t) => t.roles_permitidos.includes("particular")), [tiposExamen]);
-
-  const tipoSel = tiposDisponibles.find((t) => t.codigo === tipoExamen) ?? null;
+  // El perfil puede llegar después del primer render.
+  const perfilCargado = useRef(false);
   useEffect(() => {
-    if (tiposDisponibles.length > 0 && !tipoExamen) setTipoExamen(tiposDisponibles[0].codigo);
-  }, [tiposDisponibles, tipoExamen]);
-  useEffect(() => {
-    if (profile?.cedula && !cedula) setCedula(profile.cedula);
-  }, [profile?.cedula]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!profile || perfilCargado.current) return;
+    perfilCargado.current = true;
+    if (profile.departamento) setDepto(profile.departamento);
+    if (profile.ciudad) setCiudad(profile.ciudad);
+    if (profile.direccion) setDireccion(profile.direccion);
+  }, [profile]);
 
-  const evaluacion = useEvaluacion();
-  const search = useIpsSearch({ depto, ciudad, userLoc, filtro, selectedIps, pruebas: evaluacion.pruebas });
+  // ── Evaluación ──
+  const { data: tipos = [], isLoading: tiposLoading } = useTiposEvaluacion();
+  const tiposDisponibles = useMemo(() => tipos.filter((t) => t.roles_permitidos.includes("particular")), [tipos]);
+  const tipo = tiposDisponibles.find((t) => t.codigo === codigo) ?? null;
+  const evaluacion = useEvaluacion(enfasisIds);
+  const enfasisSel = evaluacion.enfasis.filter((e) => enfasisIds.includes(e.id));
+  const enfasisTexto = enfasisSel.length === 0 ? null : enfasisSel.some((e) => e.exclusivo) ? "sin énfasis especial" : `énfasis en ${enfasisSel.map((e) => e.nombre.toLowerCase()).join(", ")}`;
+  const evaluacionTexto = tipo ? [tipo.nombre, enfasisTexto].filter(Boolean).join(" · ") : null;
+
+  const cedula = profile?.cedula ?? "";
+  const cedulaOk = /^\d{5,12}$/.test(cedula);
+  const { data: misCitas = [] } = useAppointments(profile?.id, profile?.role);
+  const referencias: Referencia[] = useMemo(
+    () => misCitas
+      .filter((a) => a.estado === "atendida" && a.empleado_cedula === cedula)
+      .map((a) => ({ id: a.id, label: `${a.tipo_examen} · ${fechaCorta(a.fecha)}` })),
+    [misCitas, cedula],
+  );
+
+  const errores = tipo ? erroresDatos(tipo.codigo, datos) : {};
+  const datosOk = Object.keys(errores).length === 0;
+  const enfasisError = enfasisIds.length === 0
+    ? "Elige al menos una opción."
+    : !evaluacion.loading && evaluacion.pruebas.length === 0 ? "Estas opciones no tienen pruebas disponibles por ahora." : null;
+  const paso1Ok = cedulaOk && !!tipo && datosOk && !enfasisError;
+
+  // ── IPS, horario y valor ──
+  const search = useIpsSearch({ depto, ciudad, userLoc, filtro: [], selectedIps, pruebas: evaluacion.pruebas });
+  const ipsSel = search.ipsEnCiudad.find((i) => i.id === selectedIps) ?? null;
+  const cobertura = search.coberturaDe(selectedIps);
+  const ipsOk = !!cobertura && cobertura.hechas.length > 0 && !!search.disponibilidad.get(selectedIps ?? "");
+
   const hoy = hoyISO();
   const { data: slotsRaw = [], isLoading: slotsLoading, refetch: refetchSlots } = useAvailableSlots(selectedIps);
-  const slotsIps = useMemo(() => slotsRaw.filter((s) => esFuturo(s, hoy)), [slotsRaw, hoy]);
+  const slots = useMemo(() => slotsRaw.filter((s) => esFuturo(s, hoy)), [slotsRaw, hoy]);
+  const slotSel = slots.find((s) => s.id === selectedSlot) ?? null;
 
-  const ipsSel = search.ipsEnCiudad.find((i) => i.id === selectedIps) ?? null;
-  const slotSel = slotsIps.find((s) => s.id === selectedSlot) ?? null;
-  // Pruebas que hace la IPS elegida y su total (precio + comisión).
-  const cobertura = search.coberturaDe(selectedIps);
-  const valorSel = cobertura && cobertura.hechas.length > 0 ? cobertura.total : null;
-  const resumenPruebas = cobertura?.hechas.map((p) => p.nombre).join(", ") ?? "";
+  const hechas: Servicio[] = cobertura ? evaluacion.pruebas.filter((p) => cobertura.hechas.some((h) => h.id === p.id)) : [];
+  const duracion = hechas.reduce((t, p) => t + (p.duracion_min ?? 0), 0);
+  const indicaciones = indicacionesDe(hechas, tipo);
 
-  const cedulaError = !cedula.trim() ? "Ingresa tu número de documento." : !/^\d{5,12}$/.test(cedula) ? "Usa solo números, entre 5 y 12 dígitos." : null;
-  const tipoError = !tipoExamen ? "Selecciona el motivo de la evaluación." : null;
-  const canNext: Record<number, boolean> = { 1: !cedulaError && !tipoError, 2: !!ciudad, 3: !!selectedIps, 4: !!slotSel, 5: true };
+  const canNext: Record<number, boolean> = { 1: paso1Ok, 2: ipsOk, 3: !!slotSel, 4: aceptaPolitica && aceptaCancelacion };
 
   const goTo = (s: number) => { setStep(s); setMaxStep((m) => Math.max(m, s)); };
-  const firstRender = useRef(true);
+  const primerRender = useRef(true);
   useEffect(() => {
-    if (firstRender.current) { firstRender.current = false; return; }
+    if (primerRender.current) { primerRender.current = false; return; }
     headingRef.current?.focus({ preventScroll: true });
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [step]);
 
-  const next = () => {
+  const continuar = () => {
     if (step === 1) setTouched1(true);
     if (!canNext[step]) {
-      if (step === 3) toast.error("Elige una IPS para continuar");
-      if (step === 4) toast.error("Selecciona un horario para continuar");
+      if (step === 2) toast.error("Elige una IPS con horarios para continuar");
+      if (step === 3) toast.error("Elige el día y la hora para continuar");
       return;
     }
-    if (step < TOTAL) goTo(step + 1);
+    goTo(step + 1);
   };
 
-  const resetIps = () => { setSelectedIps(null); setSelectedSlot(null); setMaxStep(2); };
-  const selectIps = (id: string) => {
-    if (id !== selectedIps) { setSelectedSlot(null); setSelectedFecha(null); }
-    setSelectedIps(id);
-  };
-  const elegirIps = (id: string) => { selectIps(id); setMaxStep(3); goTo(4); };
+  const cambiarTipo = (c: string) => { if (c !== codigo) { setCodigo(c); setDatos({}); } };
+  // Otros énfasis cambian las pruebas: hay que volver a elegir IPS y horario.
+  const cambiarEnfasis = (ids: string[]) => { setEnfasisIds(ids); setSelectedIps(null); setSelectedSlot(null); setMaxStep(1); };
+  const resetIps = () => { setSelectedIps(null); setSelectedSlot(null); setMaxStep(Math.min(maxStep, 2)); };
+  const elegirIps = (id: string) => { if (id !== selectedIps) setSelectedSlot(null); setSelectedIps(id); setMaxStep(2); };
 
-  // Aparta el horario 30 minutos y lleva al usuario a la página de pago de Rapyd.
+  // Aparta el horario 30 minutos y lleva a la página de pago de Rapyd.
   // La confirmación se muestra al volver, en /app/particular/pago.
-  const submit = () => {
+  const pagar = () => {
+    setTouched4(true);
     setBookError(null);
-    if (!slotSel || !profile) return;
+    if (!slotSel || !tipo || !canNext[4]) return;
     iniciarPago.mutate(
-      { slot_id: slotSel.id, empleado_cedula: cedula, tipo_evaluacion: tipoExamen, enfasis_ids: evaluacion.enfasisIds },
+      {
+        slot_id: slotSel.id,
+        empleado_cedula: cedula,
+        tipo_evaluacion: tipo.codigo,
+        enfasis_ids: enfasisIds,
+        datos_evaluacion: limpiarDatos(tipo.codigo, datos),
+        acepta_politica: aceptaPolitica,
+      },
       {
         onSuccess: ({ redirect_url }) => window.location.assign(redirect_url),
         onError: (err) => {
-          const codigo = err instanceof PagoError ? err.codigo : undefined;
+          const cod = err instanceof PagoError ? err.codigo : undefined;
           const msg = err.message.includes("Failed to fetch") ? "Sin conexión. Revisa tu internet e inténtalo de nuevo." : err.message;
           setBookError(msg);
           toast.error(msg);
-          if (codigo === "HORARIO_TOMADO") {
-            setSelectedSlot(null); void refetchSlots(); setStep(4);
-          }
-          if (codigo === "SIN_PRUEBAS") {
-            setSelectedSlot(null); void qc.invalidateQueries({ queryKey: ["precios-servicios"] }); setStep(3);
-          }
+          if (cod === "HORARIO_TOMADO") { setSelectedSlot(null); void refetchSlots(); setStep(3); }
+          if (cod === "SIN_PRUEBAS") { setSelectedSlot(null); void qc.invalidateQueries({ queryKey: ["precios-servicios"] }); setStep(2); }
+          if (cod === "DATOS_INVALIDOS") { setTouched1(true); setStep(1); }
         },
       },
     );
   };
 
-  const current = STEPS[step - 1];
-  const resumenRows = [
-    { icon: ClipboardList, label: "Evaluación", value: tipoSel?.nombre ?? null },
-    { icon: MapPin, label: "Ciudad", value: ciudad || null },
-    { icon: Building2, label: "IPS", value: ipsSel?.nombre ?? null },
-    { icon: CalendarClock, label: "Fecha y hora", value: slotSel ? `${formatFechaCorta(slotSel.fecha)}, ${formatHora(slotSel.hora)}` : null },
-    { icon: Wallet, label: "Valor", value: valorSel != null ? formatPesos(valorSel) : null },
-  ];
+  const navPaso = (siguiente: string) => (
+    <PasoNav
+      atras={step === 1 ? <Link to="/app/particular" className={buttonVariants({ variant: "ghost" })}>Cancelar</Link> : <Button variant="ghost" onClick={() => setStep(step - 1)}><ChevronLeft /> Atrás</Button>}
+      siguiente={<Button size="lg" onClick={continuar} disabled={step === 2 && !ipsOk}>{siguiente} <ChevronRight /></Button>}
+    />
+  );
 
   return (
     <div className="space-y-6">
-      <PageHeader icon={CalendarPlus} title="Solicitar cita" description="Agenda tu examen médico en cinco pasos. Puedes volver atrás cuando quieras." />
-
+      <PageHeader icon={CalendarPlus} title="Solicitar cita" description="Agenda tu evaluación médica ocupacional en 4 pasos. Puedes volver atrás cuando quieras." />
       <Stepper steps={STEPS} step={step} maxStep={maxStep} onGo={(s) => s <= maxStep && setStep(s)} />
 
       <div className="grid gap-6 lg:grid-cols-12">
+        {/* ── Paso 1 · Evaluación ── */}
         {step === 1 && (
           <>
-            <Card className="lg:col-span-7 xl:col-span-8">
-              <StepHeading refEl={headingRef} step={current} total={TOTAL} description="Confirma tus datos y el tipo de examen que necesitas." />
-              <CardContent className="space-y-6">
-                <div className="grid gap-5 sm:grid-cols-2">
-                  <FormField id="sol-nombre" label="Nombre" hint="Se toma de tu perfil.">
-                    <IconInput icon={UserRound} value={profile?.nombre ?? ""} readOnly disabled />
-                  </FormField>
-                  <FormField id="sol-cedula" label="Número de documento" required error={touched1 ? cedulaError : null}>
-                    <IconInput icon={IdCard} inputMode="numeric" autoComplete="off" value={cedula} onChange={(e) => setCedula(soloDigitos(e.target.value))} onBlur={() => setTouched1(true)} />
-                  </FormField>
+            <Card className="lg:col-span-8">
+              <CardContent className="space-y-6 p-5 md:p-6">
+                <Encabezado refEl={headingRef} paso={1} titulo="¿Qué evaluación necesitas?" descripcion="Elige el motivo. Con eso sabemos qué pruebas incluir y qué IPS pueden atenderte." />
+
+                <div className="flex items-center gap-3 rounded-xl border bg-surface p-3">
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground" aria-hidden>{iniciales(profile?.nombre)}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-semibold">{profile?.nombre}{cedulaOk && <span className="font-normal text-muted-foreground"> · Documento {cedula}</span>}</p>
+                    <p className="text-xs text-muted-foreground">Datos tomados de tu perfil</p>
+                  </div>
+                  <Link to="/app/perfil" className="shrink-0 text-[13px] font-semibold text-accent-foreground underline-offset-2 hover:underline">Editar en Mi perfil</Link>
                 </div>
-                <TipoExamenPicker tipos={tiposDisponibles} loading={tiposLoading} value={tipoExamen} onChange={setTipoExamen} error={touched1 ? tipoError : null} />
+                {!cedulaOk && (
+                  <p role="alert" className="flex items-start gap-2 rounded-lg bg-warning-soft px-3 py-2 text-[13px] text-warning-foreground">
+                    <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+                    <span>Tu perfil no tiene un número de documento válido. <Link to="/app/perfil" className="font-semibold underline">Agrégalo en Mi perfil</Link> para continuar.</span>
+                  </p>
+                )}
+
+                <MotivoPicker tipos={tiposDisponibles} loading={tiposLoading} value={codigo} onChange={cambiarTipo} error={touched1 && !tipo ? "Elige el motivo de la evaluación." : null} />
+                {tipo && <DatosEvaluacionForm tipo={tipo} datos={datos} onChange={setDatos} errores={errores} mostrarErrores={touched1} referencias={referencias} />}
+
+                <EnfasisChips
+                  enfasis={evaluacion.enfasis}
+                  loading={evaluacion.loading}
+                  value={enfasisIds}
+                  onChange={cambiarEnfasis}
+                  error={touched1 ? enfasisError : null}
+                  legend="¿A qué riesgos te expone tu trabajo?"
+                  description="Puedes marcar varios. Definen las pruebas complementarias (énfasis). Si no sabes, pregúntale a tu empresa o elige «Ninguno especial»."
+                />
+
+                <div className="border-t pt-4">{navPaso("Continuar: elegir IPS")}</div>
               </CardContent>
             </Card>
-            <Resumen className="hidden lg:col-span-5 lg:block xl:col-span-4" rows={resumenRows} />
+            <aside className="space-y-4 lg:col-span-4">
+              <div className="space-y-4 lg:sticky lg:top-24">
+                <TuEvaluacion>
+                  <Dato label="Tipo">{tipo?.nombre}</Dato>
+                  <Dato label="Énfasis">{enfasisSel.map((e) => e.nombre).join(", ") || null}</Dato>
+                  {evaluacion.pruebas.length > 0 && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Incluye {evaluacion.pruebas.length} {evaluacion.pruebas.length === 1 ? "prueba" : "pruebas"}</p>
+                      <ul className="mt-1 space-y-1">
+                        {evaluacion.pruebas.map((p) => (
+                          <li key={p.id} className="flex items-center gap-2 text-sm"><Check className="size-3.5 text-success-foreground" aria-hidden /> {p.nombre}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  <Dato label="Valor">Se calcula al elegir la IPS</Dato>
+                </TuEvaluacion>
+                <p className="rounded-xl border border-warning/40 bg-warning-soft p-3 text-[13px] text-warning-foreground">
+                  Las pruebas finales las define el médico según tu cargo.
+                </p>
+              </div>
+            </aside>
           </>
         )}
 
+        {/* ── Paso 2 · IPS y ubicación ── */}
         {step === 2 && (
-          <UbicacionStep
+          <IpsEleccion
             headingRef={headingRef}
-            step={current}
-            total={TOTAL}
+            titulo="Elige dónde hacerte la evaluación"
+            descripcion={<>Te mostramos las IPS que hacen {evaluacion.pruebas.length === 1 ? "la prueba" : `las ${evaluacion.pruebas.length} pruebas`} de tu evaluación {tipo?.nombre.toLowerCase()}{enfasisTexto && !enfasisSel.some((e) => e.exclusivo) ? ` con ${enfasisTexto}` : ""}.</>}
+            search={search}
             depto={depto}
             ciudad={ciudad}
             direccion={direccion}
             userLoc={userLoc}
-            search={search}
-            onDepto={(v) => { setDepto(v); const first = DEPARTAMENTOS.find((d) => d.nombre === v)?.ciudades[0]; if (first) setCiudad(first.nombre); setUserLoc(null); resetIps(); }}
+            onDepto={(v) => { setDepto(v); setUserLoc(null); resetIps(); }}
             onCiudad={(v) => { setCiudad(v); setUserLoc(null); resetIps(); }}
             onDireccion={setDireccion}
-            onLocation={(loc, formatted) => { setUserLoc(loc); if (formatted) setDireccion(formatted); resetIps(); }}
-            onSelectIps={selectIps}
-          />
-        )}
-
-        {step === 3 && (
-          <IpsStep
-            headingRef={headingRef}
-            step={current}
-            total={TOTAL}
-            ciudad={ciudad}
-            userLoc={userLoc}
-            search={search}
-            filtro={filtro}
-            setFiltro={setFiltro}
+            onLocation={(loc, formatted) => { setUserLoc(loc); if (formatted) setDireccion(formatted); }}
             selectedIps={selectedIps}
-            onSelect={selectIps}
-            onElegir={elegirIps}
-            onCambiarCiudad={() => setStep(2)}
+            onSelect={elegirIps}
+            resumen={
+              <TuEvaluacion>
+                <Dato label="Tipo">{evaluacionTexto}</Dato>
+                <Dato label="Pruebas">{(cobertura?.hechas.length ? cobertura.hechas.map((h) => h.nombre) : evaluacion.pruebas.map((p) => p.nombre)).join(", ")}</Dato>
+                <Dato label="IPS">{ipsSel?.nombre}</Dato>
+              </TuEvaluacion>
+            }
+            nav={navPaso("Continuar: elegir horario")}
           />
         )}
 
-        {step === 4 && (
+        {/* ── Paso 3 · Fecha y hora ── */}
+        {step === 3 && (
           <>
-            <Card className="lg:col-span-7 xl:col-span-8">
-              <StepHeading refEl={headingRef} step={current} total={TOTAL} description={<>Horarios disponibles en <strong className="text-foreground">{ipsSel?.nombre}</strong>.</>} />
-              <CardContent className="space-y-6">
-                <HorarioPicker
-                  slots={slotsIps}
-                  loading={slotsLoading}
-                  selectedSlot={selectedSlot}
-                  onSelectSlot={setSelectedSlot}
-                  selectedFecha={selectedFecha}
-                  onSelectFecha={(f) => { setSelectedFecha(f); setSelectedSlot(null); }}
-                  onOtraIps={() => setStep(3)}
+            <Card className="lg:col-span-8">
+              <CardContent className="space-y-6 p-5 md:p-6">
+                <Encabezado
+                  refEl={headingRef}
+                  paso={3}
+                  titulo="¿Cuándo puedes ir?"
+                  descripcion={<>Horarios en <strong className="text-foreground">{ipsSel?.nombre}</strong>. <button type="button" onClick={() => setStep(2)} className="font-medium text-foreground underline underline-offset-2">Cambiar IPS</button></>}
                 />
+                <SemanaHorarios slots={slots} loading={slotsLoading} selectedSlot={selectedSlot} onSelect={setSelectedSlot} onOtraIps={() => setStep(2)} />
+                {duracion > 0 && (
+                  <p className="text-[13px] text-muted-foreground">Todas las pruebas se hacen en la misma visita. Duración aproximada: <strong className="text-foreground">{formatDuracion(duracion)}</strong>.</p>
+                )}
+                {indicaciones.length > 0 && <AntesDeTuCita indicaciones={indicaciones} />}
+                <div className="border-t pt-4">{navPaso("Continuar: revisar y pagar")}</div>
               </CardContent>
             </Card>
-            <Resumen className="lg:col-span-5 xl:col-span-4" rows={resumenRows} />
+            <aside className="lg:col-span-4">
+              <div className="lg:sticky lg:top-24">
+                <TuEvaluacion>
+                  <Dato label="Tipo">{evaluacionTexto}</Dato>
+                  <Dato label="IPS" sub={ipsSel?.direccion ?? undefined}>{ipsSel?.nombre}</Dato>
+                  <Dato label="Fecha y hora">{slotSel ? `${capitalizar(formatFechaLarga(slotSel.fecha))} · ${formatHora(slotSel.hora)}` : null}</Dato>
+                  {cobertura && (
+                    <div className="flex items-baseline justify-between gap-2 border-t pt-3">
+                      <span className="text-[13px] text-muted-foreground">Total ({cobertura.hechas.length} {cobertura.hechas.length === 1 ? "prueba" : "pruebas"})</span>
+                      <span className="text-lg font-bold tabular-nums">{formatPesos(cobertura.total)}</span>
+                    </div>
+                  )}
+                </TuEvaluacion>
+              </div>
+            </aside>
           </>
         )}
 
-        {step === 5 && slotSel && (
+        {/* ── Paso 4 · Confirmar y pagar ── */}
+        {step === 4 && slotSel && cobertura && (
           <Card className="lg:col-span-8 lg:col-start-3">
-            <StepHeading refEl={headingRef} step={current} total={TOTAL} description="Revisa los datos de tu cita antes de confirmarla." />
-            <CardContent className="space-y-5">
-              <div className="flex items-center gap-4 rounded-xl bg-primary p-4 text-primary-foreground">
-                <div className="flex w-16 shrink-0 flex-col items-center rounded-lg bg-white/15 py-2" aria-hidden>
-                  <span className="text-xs font-semibold uppercase">{fechaPartes(slotSel.fecha).mes}</span>
+            <CardContent className="space-y-5 p-5 md:p-6">
+              <Encabezado refEl={headingRef} paso={4} titulo="Revisa y paga tu cita" />
+
+              <div className="flex flex-wrap items-center gap-4 rounded-xl bg-primary p-4 text-primary-foreground">
+                <div className="flex w-14 shrink-0 flex-col items-center rounded-lg bg-white/15 py-1.5" aria-hidden>
+                  <span className="text-[11px] font-semibold uppercase">{fechaPartes(slotSel.fecha).mes}</span>
                   <span className="text-2xl font-bold leading-none">{fechaPartes(slotSel.fecha).dia}</span>
                 </div>
-                <div>
-                  <p className="text-lg font-semibold">{capitalizar(formatFecha(slotSel.fecha))}</p>
-                  <p className="opacity-90">{formatHora(slotSel.hora)} · {ipsSel?.nombre}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-lg font-semibold">{capitalizar(formatFechaLarga(slotSel.fecha))} · {formatHora(slotSel.hora)}</p>
+                  <p className="text-[13px] opacity-90">{[ipsSel?.nombre, ipsSel?.direccion].filter(Boolean).join(" · ")}</p>
                 </div>
+                <a
+                  href={ipsSel?.lat != null && ipsSel.lng != null
+                    ? `https://www.google.com/maps/search/?api=1&query=${ipsSel.lat},${ipsSel.lng}`
+                    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${ipsSel?.nombre ?? ""}, ${ipsSel?.direccion ?? ""}, ${slotSel.ciudad}, Colombia`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cn(buttonVariants({ variant: "secondary", size: "sm" }), "shrink-0")}
+                >
+                  <Navigation /> Cómo llegar<span className="sr-only"> (pestaña nueva)</span>
+                </a>
               </div>
+
               <dl className="divide-y rounded-xl border">
-                <ConfirmRow icon={ClipboardList} label="Evaluación" value={tipoSel?.nombre ?? ""} sub={resumenPruebas} onEdit={() => setStep(1)} />
-                <ConfirmRow icon={IdCard} label="Paciente" value={`${profile?.nombre ?? ""} · ${cedula}`} onEdit={() => setStep(1)} />
-                <ConfirmRow icon={Building2} label="IPS" value={ipsSel?.nombre ?? ""} sub={[ipsSel?.direccion, slotSel.ciudad].filter(Boolean).join(" · ")} onEdit={() => setStep(3)} />
-                <ConfirmRow icon={CalendarClock} label="Fecha y hora" value={`${formatFechaCorta(slotSel.fecha)}, ${formatHora(slotSel.hora)}`} onEdit={() => setStep(4)} />
+                <FilaRevision label="Evaluación" valor={evaluacionTexto ?? ""} onCambiar={() => setStep(1)} />
+                <FilaRevision label="Paciente" valor={`${profile?.nombre ?? ""} · Documento ${cedula}`} nota="De tu perfil" />
+                <FilaRevision label="IPS, fecha y hora" valor={`${ipsSel?.nombre ?? ""} · ${capitalizar(formatFechaLarga(slotSel.fecha))}, ${formatHora(slotSel.hora)}`} onCambiar={() => setStep(2)} />
               </dl>
-              {valorSel != null && <TotalRow valor={valorSel} detalle={`${cobertura!.hechas.length} ${cobertura!.hechas.length === 1 ? "prueba" : "pruebas"}`} />}
+
+              <section aria-labelledby="incluye">
+                <h3 id="incluye" className="mb-2 font-semibold">Qué incluye y cuánto cuesta</h3>
+                <ul className="divide-y text-sm">
+                  {cobertura.hechas.map((p) => (
+                    <li key={p.id} className="flex justify-between gap-3 py-2"><span>{p.nombre}</span><span className="tabular-nums">{formatPesos(p.total)}</span></li>
+                  ))}
+                </ul>
+                <div className="mt-1 flex items-baseline justify-between gap-3 border-t pt-3">
+                  <span className="font-semibold">Total</span>
+                  <span className="text-2xl font-bold tabular-nums">{formatPesos(cobertura.total)}</span>
+                </div>
+                {cobertura.faltan.length > 0 && (
+                  <p className="mt-2 text-[13px] text-warning-foreground">Esta IPS no hace: {cobertura.faltan.join(", ")}. Tendrías que hacerlas en otra IPS.</p>
+                )}
+              </section>
+
+              {indicaciones.length > 0 && (
+                <details className="group rounded-xl border border-warning/40 bg-warning-soft">
+                  <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-semibold text-warning-foreground">
+                    <ChevronDown className="size-4 transition-transform group-open:rotate-180" aria-hidden />
+                    Antes de tu cita ({indicaciones.length} {indicaciones.length === 1 ? "indicación" : "indicaciones"})
+                  </summary>
+                  <div className="px-4 pb-3"><ListaIndicaciones indicaciones={indicaciones} /></div>
+                </details>
+              )}
+
+              <div className="space-y-2.5">
+                <label className="flex cursor-pointer items-start gap-3 text-sm">
+                  <Checkbox checked={aceptaPolitica} onCheckedChange={(c) => setAceptaPolitica(!!c)} className="mt-0.5" aria-invalid={touched4 && !aceptaPolitica} />
+                  <span>
+                    Acepto la{" "}
+                    <a href="/politica-datos" target="_blank" rel="noopener noreferrer" className="font-medium text-accent-foreground underline underline-offset-2">política de tratamiento de datos<span className="sr-only"> (pestaña nueva)</span></a>.
+                    Entiendo que mi historia clínica ocupacional es confidencial.
+                  </span>
+                </label>
+                <label className="flex cursor-pointer items-start gap-3 text-sm">
+                  <Checkbox checked={aceptaCancelacion} onCheckedChange={(c) => setAceptaCancelacion(!!c)} className="mt-0.5" aria-invalid={touched4 && !aceptaCancelacion} />
+                  <span>Entiendo que puedo cancelar con reembolso total hasta 12 horas antes de la cita.</span>
+                </label>
+                {touched4 && !canNext[4] && <p role="alert" className="text-[13px] font-medium text-danger-foreground">Marca las dos casillas para continuar.</p>}
+              </div>
+
               <p className="flex items-start gap-2 rounded-lg bg-info-soft px-3 py-2 text-[13px] text-info-foreground">
-                <Info className="mt-0.5 size-4 shrink-0" aria-hidden /> Al continuar te llevamos a la página segura de pago. Apartamos el horario por 30 minutos; la cita queda confirmada cuando se apruebe el pago. Puedes cancelarla con reembolso total hasta 12 horas antes.
+                <Info className="mt-0.5 size-4 shrink-0" aria-hidden /> Al pagar te llevamos a la página segura de pago. Apartamos el horario por 30 minutos; la cita queda confirmada cuando se apruebe el pago.
               </p>
               {bookError && <p role="alert" className="rounded-lg bg-danger-soft px-3 py-2 text-sm font-medium text-danger-foreground">{bookError}</p>}
+
+              <div className="border-t pt-4">
+                <PasoNav
+                  atras={<Button variant="ghost" onClick={() => setStep(3)}><ChevronLeft /> Atrás</Button>}
+                  siguiente={
+                    <Button size="lg" onClick={pagar} disabled={iniciarPago.isPending}>
+                      {iniciarPago.isPending ? <><Loader2 className="animate-spin" /> Conectando con la pasarela…</> : <><Lock /> Pagar {formatPesos(cobertura.total)}</>}
+                    </Button>
+                  }
+                />
+              </div>
             </CardContent>
           </Card>
         )}
       </div>
-
-      <WizardNav
-        step={step}
-        total={TOTAL}
-        onBack={() => step > 1 && setStep(step - 1)}
-        onNext={next}
-        nextDisabled={step === 3 && !selectedIps}
-        finalAction={
-          <Button onClick={submit} size="lg" disabled={iniciarPago.isPending || !slotSel}>
-            {iniciarPago.isPending ? <><Loader2 className="animate-spin" /> Conectando con la pasarela…</> : <><CreditCard /> Pagar{valorSel != null ? ` ${formatPesos(valorSel)}` : ""}</>}
-          </Button>
-        }
-      />
     </div>
+  );
+}
+
+function Encabezado({ refEl, paso, titulo, descripcion }: { refEl: RefObject<HTMLHeadingElement | null>; paso: number; titulo: string; descripcion?: ReactNode }) {
+  return (
+    <div>
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Paso {paso} de {TOTAL}</p>
+      <h2 ref={refEl} tabIndex={-1} className="mt-1 text-xl font-bold focus:outline-none">{titulo}</h2>
+      {descripcion && <p className="mt-1 text-sm text-muted-foreground">{descripcion}</p>}
+    </div>
+  );
+}
+
+function PasoNav({ atras, siguiente }: { atras: ReactNode; siguiente: ReactNode }) {
+  return <div className="flex items-center justify-between gap-3">{atras}{siguiente}</div>;
+}
+
+function TuEvaluacion({ children }: { children: ReactNode }) {
+  return (
+    <section aria-label="Tu evaluación" className="rounded-2xl border bg-card p-5 shadow-sm">
+      <h2 className="mb-3 font-semibold">Tu evaluación</h2>
+      <div className="space-y-3">{children}</div>
+    </section>
+  );
+}
+
+function Dato({ label, sub, children }: { label: string; sub?: string; children: ReactNode }) {
+  return (
+    <div>
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className={cn("text-sm", children ? "font-semibold" : "text-muted-foreground")}>{children || "Pendiente"}</p>
+      {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
+    </div>
+  );
+}
+
+function FilaRevision({ label, valor, nota, onCambiar }: { label: string; valor: string; nota?: string; onCambiar?: () => void }) {
+  return (
+    <div className="flex items-center gap-3 px-4 py-3">
+      <div className="min-w-0 flex-1">
+        <dt className="text-xs text-muted-foreground">{label}</dt>
+        <dd className="font-medium">{valor}</dd>
+      </div>
+      {onCambiar ? (
+        <Button variant="ghost" size="sm" onClick={onCambiar} aria-label={`Cambiar ${label.toLowerCase()}`}>Cambiar</Button>
+      ) : nota ? (
+        <span className="text-xs text-muted-foreground">{nota}</span>
+      ) : null}
+    </div>
+  );
+}
+
+function ListaIndicaciones({ indicaciones }: { indicaciones: Indicacion[] }) {
+  return (
+    <ul className="list-disc space-y-1 pl-5 text-[13px]">
+      {indicaciones.map((i, n) => (
+        <li key={n}>{i.texto}{i.origen && <span className="text-muted-foreground"> ({i.origen.toLowerCase()})</span>}</li>
+      ))}
+    </ul>
+  );
+}
+
+function AntesDeTuCita({ indicaciones }: { indicaciones: Indicacion[] }) {
+  return (
+    <section aria-labelledby="antes-cita" className="rounded-xl border border-warning/40 bg-warning-soft p-4 text-warning-foreground">
+      <h3 id="antes-cita" className="mb-2 font-semibold">Antes de tu cita</h3>
+      <ListaIndicaciones indicaciones={indicaciones} />
+    </section>
   );
 }
