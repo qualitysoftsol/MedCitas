@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Bell, CalendarCheck, CalendarX, FileCheck2, CheckCheck, Trash2, BellOff, ChevronRight } from "lucide-react";
+import { Bell, CalendarCheck, CalendarX, FileCheck2, CheckCheck, Trash2, BellOff, ChevronRight, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -18,11 +18,13 @@ const TIPO_META: Record<Notification["tipo"], { icon: React.ComponentType<{ clas
   cita_agendada: { icon: CalendarCheck, tone: "success", accion: "Ver cita" },
   cita_cancelada: { icon: CalendarX, tone: "danger", accion: "Ver citas" },
   resultado_cargado: { icon: FileCheck2, tone: "info", accion: "Ver resultado" },
+  mensaje_nuevo: { icon: MessageSquare, tone: "primary", accion: "Ver mensaje" },
 };
 
-/** Ruta relacionada con la notificación según el rol del usuario. */
-function destino(role: Profile["role"], tipo: Notification["tipo"]): string | null {
-  const esResultado = tipo === "resultado_cargado";
+/** Ruta relacionada con la notificación: la que trae el aviso o, si no, según el rol. */
+function destino(role: Profile["role"], n: Notification): string | null {
+  if (n.enlace) return n.enlace;
+  const esResultado = n.tipo === "resultado_cargado";
   switch (role) {
     case "particular": return esResultado ? "/app/particular/resultados" : "/app/particular/citas";
     case "empresa": return esResultado ? "/app/empresa/resultados" : "/app/empresa/citas";
@@ -47,11 +49,13 @@ export function NotificationBell() {
 
   const openItem = (n: Notification) => {
     if (!n.read) markOne.mutate({ id: n.id, userId: profile.id });
-    const to = destino(profile.role, n.tipo);
+    const to = destino(profile.role, n);
     if (to) {
       setOpen(false);
+      // El enlace puede traer parámetros (?c=…): se pasan como search.
+      const url = new URL(to, window.location.origin);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      navigate({ to: to as any });
+      navigate({ to: url.pathname as any, search: Object.fromEntries(url.searchParams) as any });
     }
   };
 
@@ -120,14 +124,14 @@ export function NotificationBell() {
                 <BellOff className="size-6" aria-hidden />
               </div>
               <p className="text-sm font-medium">No tienes notificaciones</p>
-              <p className="text-xs text-muted-foreground">Aquí verás confirmaciones de citas y resultados nuevos.</p>
+              <p className="text-xs text-muted-foreground">Aquí verás confirmaciones de citas, resultados y mensajes nuevos.</p>
             </div>
           ) : (
             <ul className="divide-y">
               {items.map((n) => {
                 const meta = TIPO_META[n.tipo];
                 const Icon = meta.icon;
-                const hasLink = !!destino(profile.role, n.tipo);
+                const hasLink = !!destino(profile.role, n);
                 return (
                   <li key={n.id}>
                     <button

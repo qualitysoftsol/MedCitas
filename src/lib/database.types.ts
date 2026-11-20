@@ -110,13 +110,15 @@ export type Database = {
         Row: {
           id: string
           user_id: string
-          tipo: 'cita_agendada' | 'cita_cancelada' | 'resultado_cargado'
+          tipo: 'cita_agendada' | 'cita_cancelada' | 'resultado_cargado' | 'mensaje_nuevo'
           titulo: string
           mensaje: string
           read: boolean
+          /** Ruta a la que lleva el aviso, p. ej. '/app/ips/mensajes?c=…' (migración 024). */
+          enlace: string | null
           created_at: string
         }
-        Insert: Omit<Database['public']['Tables']['notifications']['Row'], 'id' | 'created_at' | 'read'>
+        Insert: Omit<Database['public']['Tables']['notifications']['Row'], 'id' | 'created_at' | 'read' | 'enlace'> & { enlace?: string | null }
         Update: Partial<Database['public']['Tables']['notifications']['Row']>
       }
       // Catálogos de evaluación (migración 019).
@@ -292,6 +294,42 @@ export type Database = {
         Insert: never
         Update: never
       }
+      // Mensajes entre el administrador y las IPS (migración 024): el navegador
+      // solo los lee; se escriben con iniciar_conversacion, enviar_mensaje,
+      // marcar_conversacion_leida y cambiar_estado_conversacion.
+      conversaciones: {
+        Row: {
+          id: string
+          ips_id: string
+          asunto: string
+          estado: 'abierta' | 'cerrada'
+          creada_por: string
+          cerrada_por: string | null
+          cerrada_at: string | null
+          ultimo_mensaje_at: string
+          created_at: string
+        }
+        Insert: never
+        Update: never
+      }
+      mensajes: {
+        Row: {
+          id: string
+          conversacion_id: string
+          autor_id: string
+          /** Lado que escribió: true = administrador, false = IPS. */
+          de_admin: boolean
+          cuerpo: string
+          appointment_id: string | null
+          resultado_id: string | null
+          /** Cuándo lo leyó el otro lado. */
+          leido_at: string | null
+          correo_enviado_at: string | null
+          created_at: string
+        }
+        Insert: never
+        Update: never
+      }
     }
   }
 }
@@ -308,6 +346,8 @@ export type Pago = Database['public']['Tables']['pagos']['Row']
 export type Reembolso = Database['public']['Tables']['reembolsos']['Row']
 export type FacturaEmpresa = Database['public']['Tables']['facturas_empresa']['Row']
 export type LiquidacionIps = Database['public']['Tables']['liquidaciones_ips']['Row']
+export type Conversacion = Database['public']['Tables']['conversaciones']['Row']
+export type Mensaje = Database['public']['Tables']['mensajes']['Row']
 export type LineaServicio = Database['public']['Tables']['lineas_servicio']['Row']
 export type TipoEvaluacion = Database['public']['Tables']['tipos_evaluacion']['Row']
 

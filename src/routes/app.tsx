@@ -3,16 +3,17 @@ import { useAuth } from "@/lib/auth-context";
 import type { Profile } from "@/lib/database.types";
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader,
-  SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarRail, SidebarTrigger, useSidebar,
+  SidebarMenu, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarRail, SidebarTrigger, useSidebar,
 } from "@/components/ui/sidebar";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
   CalendarDays, ClipboardList, FileUp, Users, Building2, ShieldCheck, LogOut, LayoutDashboard, Stethoscope,
-  User, BookOpen, House, CalendarPlus, FileText, UserRound, ChevronDown, Lock, Percent, Receipt, Briefcase,
+  User, BookOpen, House, CalendarPlus, FileText, UserRound, ChevronDown, Lock, Percent, Receipt, Briefcase, MessagesSquare,
 } from "lucide-react";
 import { NotificationBell } from "@/components/NotificationBell";
+import { ladoChat, totalNoLeidos, useMensajesRealtime, useNoLeidos } from "@/lib/hooks/useMensajes";
 import { Logo } from "@/components/app/Logo";
 import { iniciales } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -23,7 +24,13 @@ export const Route = createFileRoute("/app")({
   component: AppLayout,
 });
 
-interface NavItem { to: string; title: string; icon: React.ComponentType<{ className?: string }> }
+interface NavItem {
+  to: string;
+  title: string;
+  icon: React.ComponentType<{ className?: string }>;
+  /** Muestra el número de mensajes sin leer. */
+  mensajes?: boolean;
+}
 
 // "Principal" agrupa las tareas del día a día; "Cuenta" lo relacionado con el usuario.
 const NAV: Record<Role, NavItem[]> = {
@@ -31,6 +38,7 @@ const NAV: Record<Role, NavItem[]> = {
     { to: "/app/ips/calendario", title: "Calendario", icon: CalendarDays },
     { to: "/app/ips/citas", title: "Citas agendadas", icon: ClipboardList },
     { to: "/app/ips/resultados", title: "Cargar resultados", icon: FileUp },
+    { to: "/app/ips/mensajes", title: "Mensajes", icon: MessagesSquare, mensajes: true },
   ],
   empresa: [
     { to: "/app/empresa/solicitar", title: "Solicitar cita", icon: CalendarPlus },
@@ -52,6 +60,7 @@ const NAV: Record<Role, NavItem[]> = {
     { to: "/app/admin/catalogos", title: "Catálogos", icon: BookOpen },
     { to: "/app/admin/comisiones", title: "Comisiones", icon: Percent },
     { to: "/app/admin/facturacion", title: "Facturación", icon: Receipt },
+    { to: "/app/admin/mensajes", title: "Mensajes", icon: MessagesSquare, mensajes: true },
     { to: "/app/admin/menus", title: "Menús por rol", icon: ShieldCheck },
   ],
 };
@@ -80,8 +89,9 @@ function AppLayout() {
       >
         Saltar al contenido
       </a>
+      <MensajesRealtime profile={profile} />
       <div className="flex min-h-screen w-full bg-background">
-        <AppSidebar items={NAV[profile.role]} role={profile.role} />
+        <AppSidebar items={NAV[profile.role]} role={profile.role} profileId={profile.id} />
         <div className="flex min-w-0 flex-1 flex-col">
           <AppHeader profile={profile} />
           <main id="contenido" tabIndex={-1} className="mx-auto w-full max-w-[1440px] flex-1 px-4 py-6 focus:outline-none md:px-6 lg:px-8 lg:py-8">
@@ -91,6 +101,12 @@ function AppLayout() {
       </div>
     </SidebarProvider>
   );
+}
+
+/** Única suscripción en tiempo real a los mensajes (admin e IPS). */
+function MensajesRealtime({ profile }: { profile: Profile }) {
+  useMensajesRealtime(profile.id, ladoChat(profile.role));
+  return null;
 }
 
 function ShellSkeleton() {
@@ -163,15 +179,18 @@ function AppHeader({ profile }: { profile: Profile }) {
   );
 }
 
-function AppSidebar({ items, role }: { items: NavItem[]; role: Role }) {
+function AppSidebar({ items, role, profileId }: { items: NavItem[]; role: Role; profileId: string }) {
   const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed" && !isMobile;
   const currentPath = normalize(useRouterState({ select: (r) => r.location.pathname }));
   const meta = ROLE_META[role];
+  const { data: noLeidos } = useNoLeidos(profileId, ladoChat(role));
+  const sinLeer = totalNoLeidos(noLeidos);
 
   const renderItems = (list: NavItem[]) =>
     list.map((it) => {
       const active = currentPath === normalize(it.to);
+      const badge = it.mensajes && sinLeer > 0 ? sinLeer : 0;
       return (
         <SidebarMenuItem key={it.to}>
           <SidebarMenuButton
@@ -188,8 +207,14 @@ function AppSidebar({ items, role }: { items: NavItem[]; role: Role }) {
             <Link to={it.to} aria-current={active ? "page" : undefined} onClick={() => isMobile && setOpenMobile(false)}>
               <it.icon />
               <span>{it.title}</span>
+              {badge > 0 && <span className="sr-only">, {badge} sin leer</span>}
             </Link>
           </SidebarMenuButton>
+          {badge > 0 && (
+            <SidebarMenuBadge aria-hidden className="peer-data-[size=default]/menu-button:top-2.5 rounded-full bg-danger text-[11px] font-bold text-white peer-hover/menu-button:text-white peer-data-[active=true]/menu-button:text-white">
+              {badge > 99 ? "99+" : badge}
+            </SidebarMenuBadge>
+          )}
         </SidebarMenuItem>
       );
     });

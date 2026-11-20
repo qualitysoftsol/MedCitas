@@ -273,3 +273,41 @@ the user back (Rapyd rejects localhost URLs). It only redirects to `APP_URL/app/
   marks it paid. The empresa sees its invoices in **Facturas**.
 - **IPS:** in **Facturación → Pagos a IPS** the admin calculates what each IPS is owed for all
   its appointments of the month, at base price, and marks it paid after transferring.
+
+---
+
+## Step 15: Admin ↔ IPS messages (migrations 023–024)
+
+### 15a. Migrations
+
+1. Run `023_mensajes_tipo.sql` **on its own** (it adds the `mensaje_nuevo` notification type;
+   Postgres can't use a new enum value in the same transaction that creates it).
+2. Run `024_mensajes.sql` in a new query. It creates `conversaciones` and `mensajes`, their RLS
+   policies and functions, the bell trigger, enables Realtime for both tables and schedules
+   `pg_cron` (`medcitas-correo-mensajes`, every 5 minutes). If the last block fails, enable
+   **Database → Extensions → pg_cron** and run only the block between `@cron-inicio` and
+   `@cron-fin`.
+
+### 15b. Deploy the function
+
+```
+supabase functions deploy notify-mensajes
+```
+
+It uses the same secrets as `notify-appointment` (`RESEND_API_KEY`, `SITE_URL` and, while
+testing, `RESEND_TEST_EMAIL`). `SITE_URL` must be the app's address: the email links to
+`SITE_URL/app/<admin|ips>/mensajes?c=<conversation>`.
+
+### 15c. How it works
+
+- Conversations are per topic between the admin and one IPS. Either side can start, close or
+  reopen one; a closed conversation doesn't accept messages. A message can link one
+  appointment or one result of that IPS.
+- Messages can't be edited or deleted: the browser has no INSERT/UPDATE/DELETE permission and
+  writes only through `iniciar_conversacion`, `enviar_mensaje`, `marcar_conversacion_leida`
+  and `cambiar_estado_conversacion`.
+- Each message leaves one unread bell notification per conversation (replaced by the latest
+  message). Opening the conversation marks the messages as read (the sender sees ✓✓) and the
+  notification too.
+- If a message is still unread after 1 hour, the other side gets one email per conversation
+  until they read it. The email doesn't include the message text.
